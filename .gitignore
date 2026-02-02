@@ -1,0 +1,23 @@
+# Go
+**/gateway
+**/*.exe
+**/*.out
+**/*.test
+**/tmp/
+**/bin/
+**/pkg/
+
+# Go env
+.env
+.env.*
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
