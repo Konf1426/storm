@@ -2,6 +2,7 @@
 **/gateway
 !services/gateway
 !services/gateway/**
+services/gateway/gateway
 **/*.exe
 **/*.out
 **/*.test
