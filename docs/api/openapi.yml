@@ -1,0 +1,320 @@
+﻿openapi: 3.0.3
+info:
+  title: Storm Gateway API
+  version: 0.1.0
+  description: HTTP gateway for publishing and streaming events.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+  - url: http://localhost:8080
+paths:
+  /auth/register:
+    post:
+      summary: Register a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                password:
+                  type: string
+                display_name:
+                  type: string
+              required: [user_id, password]
+      responses:
+        '201':
+          description: Created
+  /auth/login:
+    post:
+      summary: Login and issue JWT cookies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                password:
+                  type: string
+              required: [user_id, password]
+      responses:
+        '200':
+          description: OK
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      responses:
+        '200':
+          description: Refreshed
+  /auth/logout:
+    post:
+      summary: Logout and clear cookies
+      responses:
+        '200':
+          description: OK
+  /auth/me:
+    get:
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: ok
+  /ping-nats:
+    get:
+      summary: Check NATS connectivity
+      responses:
+        '200':
+          description: NATS connected
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: nats ok
+        '503':
+          description: NATS not connected
+  /publish:
+    post:
+      summary: Publish an event to NATS
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: subject
+          schema:
+            type: string
+          required: false
+          description: NATS subject (default: storm.events)
+      requestBody:
+        required: false
+        content:
+          text/plain:
+            schema:
+              type: string
+            example: '{"type":"hello","message":"from client"}'
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '202':
+          description: Accepted
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: published
+        '400':
+          description: Bad request
+        '502':
+          description: Publish failed
+  /events:
+    get:
+      summary: Stream events over SSE (legacy)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: subject
+          schema:
+            type: string
+          required: false
+          description: NATS subject (default: storm.events)
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: Metrics payload
+          content:
+            text/plain:
+              schema:
+                type: string
+  /ws:
+    get:
+      summary: WebSocket realtime channel
+      description: |
+        WebSocket endpoint for realtime messaging. Requires JWT auth.
+      security:
+        - bearerAuth: []
+      responses:
+        '101':
+          description: Switching Protocols
+        '401':
+          description: Unauthorized
+  /channels:
+    get:
+      summary: List channels
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Channels list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      summary: Create a channel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+              required: [name]
+      responses:
+        '201':
+          description: Created
+  /channels/{id}/messages:
+    get:
+      summary: List channel messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Messages list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      summary: Post message to channel
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                payload:
+                  type: string
+              required: [payload]
+      responses:
+        '201':
+          description: Created
+  /users:
+    get:
+      summary: List users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      summary: Create a user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                password:
+                  type: string
+                display_name:
+                  type: string
+              required: [user_id, password]
+      responses:
+        '201':
+          description: Created
+  /users/{id}:
+    get:
+      summary: Get user by id
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Update user (self)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete user (self)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK

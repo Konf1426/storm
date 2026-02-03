@@ -8,9 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/nats-io/nats.go"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -42,16 +40,8 @@ func main() {
 		log.Fatalf("nats flush error: %v", err)
 	}
 
-	// HTTP
-	r := chi.NewRouter()
-	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
-	r.Handle("/metrics", promhttp.Handler())
-
 	addr := env("MESSAGES_ADDR", ":8081")
-	srv := &http.Server{Addr: addr, Handler: r}
+	srv := &http.Server{Addr: addr, Handler: NewRouter()}
 
 	go func() {
 		log.Printf("messages listening on %s (nats=%s subject=%s)", addr, natsURL, subject)
@@ -66,11 +56,4 @@ func main() {
 	<-stop
 	log.Println("shutting down...")
 	_ = srv.Close()
-}
-
-func env(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

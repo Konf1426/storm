@@ -28,10 +28,17 @@ services:
     environment:
       NATS_URL: nats://nats:4222
       GATEWAY_ADDR: :8080
+      JWT_SECRET: dev-secret
+      JWT_REFRESH_SECRET: dev-secret
+      CORS_ORIGIN: http://localhost:5173
+      POSTGRES_DSN: postgres://storm:storm@postgres:5432/storm?sslmode=disable
+      REDIS_ADDR: redis:6379
     ports:
       - "8080:8080"
     depends_on:
       - nats
+      - postgres
+      - redis
 
   messages:
     build:

@@ -8,7 +8,7 @@
             Realtime Messaging Dashboard
           </h1>
           <p class="mt-2 max-w-2xl text-base text-muted-foreground">
-            Publish events to NATS and watch them stream live from the gateway SSE endpoint.
+            Publish events to NATS and watch them stream live over WebSocket.
           </p>
         </div>
         <div class="flex flex-wrap gap-3">
@@ -22,16 +22,49 @@
     </header>
 
     <main class="px-6 pb-16 lg:px-12">
-      <div class="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
+      <div v-if="!authenticated" class="mx-auto max-w-xl">
+        <Card>
+          <CardHeader>
+            <div>
+              <p class="text-sm font-mono uppercase tracking-[0.2em] text-muted-foreground">Auth</p>
+              <h2 class="text-2xl font-semibold">Sign in to the dashboard</h2>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div class="space-y-4">
+              <div>
+                <label class="text-sm font-medium text-foreground">User ID</label>
+                <Input v-model="loginUser" placeholder="user-1" />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-foreground">Password</label>
+                <Input v-model="loginPassword" type="password" placeholder="••••••" />
+              </div>
+              <div class="flex flex-wrap gap-3">
+                <Button @click="login">Login</Button>
+                <Button variant="outline" @click="register">Register</Button>
+                <span class="text-sm text-muted-foreground">{{ authStatus }}</span>
+              </div>
+              <p class="text-xs text-muted-foreground">
+                Access token lasts 15 min and auto-refreshes with a 24h refresh token.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div v-else class="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
         <Card>
           <CardHeader>
             <div>
               <p class="text-sm font-mono uppercase tracking-[0.2em] text-muted-foreground">Publisher</p>
               <h2 class="text-2xl font-semibold">Send a message</h2>
+              <p class="mt-1 text-xs text-muted-foreground">Signed in as {{ currentUser }}</p>
             </div>
             <div class="flex gap-2">
               <Button variant="ghost" @click="connectStream">Reconnect</Button>
               <Button variant="secondary" @click="disconnectStream">Disconnect</Button>
+              <Button variant="outline" @click="logout">Logout</Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -40,17 +73,39 @@
                 <label class="text-sm font-medium text-foreground">Gateway URL</label>
                 <Input v-model="gatewayUrl" placeholder="http://localhost:8080" />
               </div>
-              <div>
+              <div v-if="!selectedChannelId">
                 <label class="text-sm font-medium text-foreground">Subject</label>
                 <Input v-model="subject" placeholder="storm.events" />
+                <p class="mt-1 text-xs text-muted-foreground">
+                  Used only when no channel is selected.
+                </p>
               </div>
               <div>
-                <label class="text-sm font-medium text-foreground">Payload</label>
-                <Textarea v-model="payload" rows="6" placeholder='{"type":"hello","msg":"from frontend"}' />
+                <label class="text-sm font-medium text-foreground">Channel</label>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <select
+                    v-model="selectedChannelId"
+                    class="w-full rounded-2xl border border-border bg-white/90 px-4 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  >
+                    <option value="">No channel (raw subject)</option>
+                    <option v-for="channel in channels" :key="channel.id" :value="String(channel.id)">
+                      {{ channel.name }} (#{{ channel.id }})
+                    </option>
+                  </select>
+                  <Input v-model="newChannelName" placeholder="new channel name" />
+                  <Button variant="outline" @click="createChannel">Create channel</Button>
+                </div>
+                <div class="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Channels loaded: {{ channels.length }}</span>
+                  <Button variant="ghost" @click="loadChannels">Refresh</Button>
+                </div>
+              </div>
+              <div>
+                <label class="text-sm font-medium text-foreground">Message</label>
+                <Input v-model="messageText" placeholder="type your message" />
               </div>
               <div class="flex flex-wrap items-center gap-3">
-                <Button @click="sendMessage">Publish</Button>
-                <Button variant="outline" @click="sendSample">Send sample</Button>
+                <Button @click="sendMessage">Send</Button>
                 <span class="text-sm text-muted-foreground">{{ publishStatus }}</span>
               </div>
             </div>
@@ -90,7 +145,7 @@
         </Card>
       </div>
 
-      <div class="mt-8 grid gap-6 lg:grid-cols-3">
+      <div v-if="authenticated" class="mt-8 grid gap-6 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <p class="text-sm font-mono uppercase tracking-[0.2em] text-muted-foreground">Connection</p>
@@ -135,12 +190,13 @@ import Card from "./components/ui/Card.vue"
 import CardContent from "./components/ui/CardContent.vue"
 import CardHeader from "./components/ui/CardHeader.vue"
 import Input from "./components/ui/Input.vue"
-import Textarea from "./components/ui/Textarea.vue"
+ 
 
 const gatewayUrl = ref(import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080")
 const subject = ref("storm.events")
-const payload = ref("{\n  \"type\": \"hello\",\n  \"message\": \"Storm realtime test\"\n}")
+const messageText = ref("")
 const publishStatus = ref("")
+const authStatus = ref("")
 const connected = ref(false)
 const lastEventAt = ref("")
 const messages = ref([])
@@ -148,21 +204,32 @@ const recentWindow = ref([])
 let stream = null
 let nextId = 1
 let intervalId = null
+let refreshTimer = null
+
+const channels = ref([])
+const selectedChannelId = ref("")
+const newChannelName = ref("")
+
+const authenticated = ref(false)
+const currentUser = ref("")
+const loginUser = ref("")
+const loginPassword = ref("")
 
 const connectionHint = computed(() =>
   connected.value
-    ? "Streaming events over SSE from the gateway."
+    ? "Streaming events over WebSocket from the gateway."
     : "Stream disconnected. Check gateway URL or reconnect."
 )
 
 const recentRate = computed(() => recentWindow.value.length)
 
 const pushEvent = (text) => {
+  const formatted = formatMessage(text)
   const now = new Date()
   const entry = {
     id: nextId++,
     time: now.toLocaleTimeString(),
-    text,
+    text: formatted,
     bytes: new TextEncoder().encode(text).length,
   }
   messages.value.unshift(entry)
@@ -180,18 +247,29 @@ const pruneWindow = () => {
 }
 
 const connectStream = () => {
+  if (!authenticated.value) return
   disconnectStream()
-  const url = `${gatewayUrl.value}/events?subject=${encodeURIComponent(subject.value)}`
-  stream = new EventSource(url)
-  connected.value = true
-
+  const base = gatewayUrl.value.replace(/^http/, "ws").replace(/\/$/, "")
+  const params = new URLSearchParams()
+  if (selectedChannelId.value) {
+    params.set("channel_id", selectedChannelId.value)
+  } else {
+    params.set("subject", subject.value)
+  }
+  const url = `${base}/ws?${params.toString()}`
+  stream = new WebSocket(url)
+  stream.onopen = () => {
+    connected.value = true
+  }
   stream.onmessage = (event) => {
     if (event?.data) {
       pushEvent(event.data)
     }
   }
-
   stream.onerror = () => {
+    connected.value = false
+  }
+  stream.onclose = () => {
     connected.value = false
   }
 }
@@ -207,18 +285,33 @@ const disconnectStream = () => {
 const sendMessage = async () => {
   publishStatus.value = "publishing..."
   try {
-    const res = await fetch(
-      `${gatewayUrl.value}/publish?subject=${encodeURIComponent(subject.value)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: payload.value,
-      }
-    )
+    const headers = { "Content-Type": "text/plain" }
+    let url = `${gatewayUrl.value}/publish?subject=${encodeURIComponent(subject.value)}`
+    const payload = {
+      user: currentUser.value || "anonymous",
+      message: messageText.value.trim(),
+    }
+    if (!payload.message) {
+      publishStatus.value = "message required"
+      return
+    }
+    let body = JSON.stringify(payload)
+    if (selectedChannelId.value) {
+      url = `${gatewayUrl.value}/channels/${selectedChannelId.value}/messages`
+      headers["Content-Type"] = "application/json"
+      body = JSON.stringify({ payload: body })
+    }
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body,
+      credentials: "include",
+    })
     if (!res.ok) {
       throw new Error(await res.text())
     }
-    publishStatus.value = "published"
+    messageText.value = ""
+    publishStatus.value = "sent"
   } catch (err) {
     publishStatus.value = `failed: ${err.message}`
   } finally {
@@ -228,28 +321,171 @@ const sendMessage = async () => {
   }
 }
 
-const sendSample = () => {
-  payload.value = JSON.stringify(
-    {
-      type: "sample",
-      ts: new Date().toISOString(),
-      source: "frontend",
-    },
-    null,
-    2
-  )
-  sendMessage()
+const formatMessage = (raw) => {
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed && parsed.user && parsed.message) {
+      return `${parsed.user} : ${parsed.message}`
+    }
+  } catch {
+    // ignore
+  }
+  return raw
+}
+
+const loadChannels = async () => {
+  try {
+    const res = await fetch(`${gatewayUrl.value}/channels`, {
+      credentials: "include",
+    })
+    if (!res.ok) {
+      throw new Error(await res.text())
+    }
+    channels.value = await res.json()
+  } catch (err) {
+    publishStatus.value = `load failed: ${err.message}`
+  }
+}
+
+const createChannel = async () => {
+  if (!newChannelName.value.trim()) {
+    publishStatus.value = "channel name required"
+    return
+  }
+  try {
+    const res = await fetch(`${gatewayUrl.value}/channels`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({ name: newChannelName.value.trim() }),
+    })
+    if (!res.ok) {
+      throw new Error(await res.text())
+    }
+    const channel = await res.json()
+    newChannelName.value = ""
+    await loadChannels()
+    selectedChannelId.value = String(channel.id)
+    connectStream()
+  } catch (err) {
+    publishStatus.value = `create failed: ${err.message}`
+  }
+}
+
+const register = async () => {
+  authStatus.value = "registering..."
+  try {
+    const res = await fetch(`${gatewayUrl.value}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        user_id: loginUser.value,
+        password: loginPassword.value,
+        display_name: loginUser.value,
+      }),
+    })
+    if (!res.ok) {
+      throw new Error(await res.text())
+    }
+    authStatus.value = "registered, please login"
+  } catch (err) {
+    authStatus.value = `register failed: ${err.message}`
+  }
+}
+
+const login = async () => {
+  authStatus.value = "logging in..."
+  try {
+    const res = await fetch(`${gatewayUrl.value}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        user_id: loginUser.value,
+        password: loginPassword.value,
+      }),
+    })
+    if (!res.ok) {
+      throw new Error(await res.text())
+    }
+    const user = await res.json()
+    authenticated.value = true
+    currentUser.value = user.id
+    authStatus.value = ""
+    await loadChannels()
+    connectStream()
+    scheduleRefresh()
+  } catch (err) {
+    authStatus.value = `login failed: ${err.message}`
+  }
+}
+
+const logout = async () => {
+  await fetch(`${gatewayUrl.value}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  })
+  authenticated.value = false
+  currentUser.value = ""
+  channels.value = []
+  disconnectStream()
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+  }
+}
+
+const refreshSession = async () => {
+  const res = await fetch(`${gatewayUrl.value}/auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+  })
+  if (res.ok) {
+    return true
+  }
+  return false
+}
+
+const scheduleRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+  }
+  refreshTimer = setInterval(async () => {
+    const ok = await refreshSession()
+    if (!ok) {
+      await logout()
+    }
+  }, 10 * 60 * 1000)
+}
+
+const checkSession = async () => {
+  const res = await fetch(`${gatewayUrl.value}/auth/me`, {
+    credentials: "include",
+  })
+  if (res.ok) {
+    const user = await res.json()
+    authenticated.value = true
+    currentUser.value = user.id
+    await loadChannels()
+    connectStream()
+    scheduleRefresh()
+  }
 }
 
 onMounted(() => {
-  connectStream()
   intervalId = setInterval(pruneWindow, 1000)
+  checkSession()
 })
 
 onBeforeUnmount(() => {
   disconnectStream()
   if (intervalId) {
     clearInterval(intervalId)
+  }
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
   }
 })
 </script>
