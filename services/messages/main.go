@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -45,10 +47,19 @@ func runEntry(deps runtimeDeps) error {
 	addr := env("MESSAGES_ADDR", ":8081")
 	natsURL := env("NATS_URL", "nats://localhost:4222")
 	subject := env("SUBJECT", "storm.events")
+	pprofAddr := env("PPROF_ADDR", "")
 
 	ctx, stop := deps.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	deps.Logf("messages listening on %s (nats=%s subject=%s)", addr, natsURL, subject)
+	if pprofAddr != "" {
+		go func() {
+			deps.Logf("pprof listening on %s", pprofAddr)
+			if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+				deps.Logf("pprof error: %v", err)
+			}
+		}()
+	}
 	return runMain(ctx, deps.Connect, natsURL, subject, addr)
 }

@@ -1,5 +1,7 @@
 # Go
 **/gateway
+!services/gateway
+!services/gateway/**
 **/*.exe
 **/*.out
 **/*.test
