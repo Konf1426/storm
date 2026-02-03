@@ -25,6 +25,8 @@ services:
   gateway:
     build:
       context: ../../services/gateway
+    cap_add:
+      - NET_ADMIN
     environment:
       NATS_URL: nats://nats:4222
       GATEWAY_ADDR: :8080
@@ -45,6 +47,8 @@ services:
   messages:
     build:
       context: ../../services/messages
+    cap_add:
+      - NET_ADMIN
     environment:
       NATS_URL: nats://nats:4222
       SUBJECT: storm.events
