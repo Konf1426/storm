@@ -1,8 +1,8 @@
 package main
 
 import (
+	"context"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,48 +12,43 @@ import (
 )
 
 func main() {
-	// NATS
-	natsURL := env("NATS_URL", "nats://localhost:4222")
-	subject := env("SUBJECT", "storm.events")
-
-	nc, err := nats.Connect(
-		natsURL,
-		nats.Name("storm-messages"),
-		nats.Timeout(3*time.Second),
-		nats.PingInterval(20*time.Second),
-		nats.MaxPingsOutstanding(3),
-	)
-	if err != nil {
-		log.Fatalf("nats connect failed: %v", err)
+	if err := runEntry(runtimeDeps{}); err != nil {
+		log.Fatalf("messages failed: %v", err)
 	}
-	defer nc.Close()
+}
 
-	// Subscribe
-	_, err = nc.Subscribe(subject, func(m *nats.Msg) {
-		log.Printf("received subject=%s bytes=%d payload=%s", m.Subject, len(m.Data), string(m.Data))
-	})
-	if err != nil {
-		log.Fatalf("subscribe failed: %v", err)
+type runtimeDeps struct {
+	NotifyContext func(context.Context, ...os.Signal) (context.Context, context.CancelFunc)
+	Connect       func(string) (NatsConn, error)
+	Logf          func(string, ...any)
+}
+
+func runEntry(deps runtimeDeps) error {
+	if deps.NotifyContext == nil {
+		deps.NotifyContext = signal.NotifyContext
 	}
-	nc.Flush()
-	if err := nc.LastError(); err != nil {
-		log.Fatalf("nats flush error: %v", err)
+	if deps.Connect == nil {
+		deps.Connect = func(url string) (NatsConn, error) {
+			return nats.Connect(
+				url,
+				nats.Name("storm-messages"),
+				nats.Timeout(3*time.Second),
+				nats.PingInterval(20*time.Second),
+				nats.MaxPingsOutstanding(3),
+			)
+		}
+	}
+	if deps.Logf == nil {
+		deps.Logf = log.Printf
 	}
 
 	addr := env("MESSAGES_ADDR", ":8081")
-	srv := &http.Server{Addr: addr, Handler: NewRouter()}
+	natsURL := env("NATS_URL", "nats://localhost:4222")
+	subject := env("SUBJECT", "storm.events")
 
-	go func() {
-		log.Printf("messages listening on %s (nats=%s subject=%s)", addr, natsURL, subject)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("http server failed: %v", err)
-		}
-	}()
+	ctx, stop := deps.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	// Graceful shutdown
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
-	log.Println("shutting down...")
-	_ = srv.Close()
+	deps.Logf("messages listening on %s (nats=%s subject=%s)", addr, natsURL, subject)
+	return runMain(ctx, deps.Connect, natsURL, subject, addr)
 }
