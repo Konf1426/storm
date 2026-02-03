@@ -100,14 +100,6 @@
                   <Button variant="ghost" @click="loadChannels">Refresh</Button>
                 </div>
               </div>
-              <div>
-                <label class="text-sm font-medium text-foreground">Message</label>
-                <Input v-model="messageText" placeholder="type your message" />
-              </div>
-              <div class="flex flex-wrap items-center gap-3">
-                <Button @click="sendMessage">Send</Button>
-                <span class="text-sm text-muted-foreground">{{ publishStatus }}</span>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -123,7 +115,10 @@
             </div>
           </CardHeader>
           <CardContent>
-            <div class="h-[420px] overflow-auto rounded-xl border border-border bg-white/70 p-4 shadow-glow">
+            <div
+              ref="feedRef"
+              class="h-[420px] overflow-auto rounded-xl border border-border bg-white/70 p-4 shadow-glow"
+            >
               <div v-if="messages.length === 0" class="text-sm text-muted-foreground">
                 No events yet. Publish a message to see it here.
               </div>
@@ -131,7 +126,10 @@
                 <div
                   v-for="event in messages"
                   :key="event.id"
-                  class="rounded-lg border border-border bg-white px-3 py-2 shadow-sm"
+                  :class="[
+                    'rounded-lg border px-3 py-2 shadow-sm',
+                    event.own ? 'border-emerald-200 bg-emerald-50' : 'border-border bg-white'
+                  ]"
                 >
                   <div class="flex items-center justify-between">
                     <span class="text-xs font-mono text-muted-foreground">{{ event.time }}</span>
@@ -139,6 +137,16 @@
                   </div>
                   <pre class="mt-2 whitespace-pre-wrap text-sm text-foreground">{{ event.text }}</pre>
                 </div>
+              </div>
+            </div>
+            <div class="mt-4 flex flex-col gap-3">
+              <div>
+                <label class="text-sm font-medium text-foreground">Message</label>
+                <Input v-model="messageText" placeholder="type your message" />
+              </div>
+              <div class="flex flex-wrap items-center gap-3">
+                <Button @click="sendMessage">Send</Button>
+                <span class="text-sm text-muted-foreground">{{ publishStatus }}</span>
               </div>
             </div>
           </CardContent>
@@ -183,14 +191,13 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue"
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import Badge from "./components/ui/Badge.vue"
 import Button from "./components/ui/Button.vue"
 import Card from "./components/ui/Card.vue"
 import CardContent from "./components/ui/CardContent.vue"
 import CardHeader from "./components/ui/CardHeader.vue"
 import Input from "./components/ui/Input.vue"
- 
 
 const gatewayUrl = ref(import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080")
 const subject = ref("storm.events")
@@ -205,6 +212,8 @@ let stream = null
 let nextId = 1
 let intervalId = null
 let refreshTimer = null
+let reconnectTimer = null
+const feedRef = ref(null)
 
 const channels = ref([])
 const selectedChannelId = ref("")
@@ -224,21 +233,26 @@ const connectionHint = computed(() =>
 const recentRate = computed(() => recentWindow.value.length)
 
 const pushEvent = (text) => {
-  const formatted = formatMessage(text)
+  const parsed = parseMessage(text)
   const now = new Date()
   const entry = {
     id: nextId++,
     time: now.toLocaleTimeString(),
-    text: formatted,
+    text: parsed.text,
+    own: parsed.author && parsed.author === currentUser.value,
     bytes: new TextEncoder().encode(text).length,
   }
-  messages.value.unshift(entry)
-  if (messages.value.length > 120) {
-    messages.value.pop()
+  const shouldStick = isNearBottom()
+  messages.value.push(entry)
+  if (messages.value.length > 200) {
+    messages.value.shift()
   }
   lastEventAt.value = now.toLocaleTimeString()
   recentWindow.value.push(now.getTime())
   pruneWindow()
+  if (shouldStick) {
+    scrollToBottom()
+  }
 }
 
 const pruneWindow = () => {
@@ -271,7 +285,18 @@ const connectStream = () => {
   }
   stream.onclose = () => {
     connected.value = false
+    scheduleReconnect()
   }
+}
+
+const scheduleReconnect = () => {
+  if (!authenticated.value) return
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+  }
+  reconnectTimer = setTimeout(() => {
+    connectStream()
+  }, 1500)
 }
 
 const disconnectStream = () => {
@@ -283,9 +308,8 @@ const disconnectStream = () => {
 }
 
 const sendMessage = async () => {
-  publishStatus.value = "publishing..."
+  publishStatus.value = "sending..."
   try {
-    const headers = { "Content-Type": "text/plain" }
     let url = `${gatewayUrl.value}/publish?subject=${encodeURIComponent(subject.value)}`
     const payload = {
       user: currentUser.value || "anonymous",
@@ -298,12 +322,11 @@ const sendMessage = async () => {
     let body = JSON.stringify(payload)
     if (selectedChannelId.value) {
       url = `${gatewayUrl.value}/channels/${selectedChannelId.value}/messages`
-      headers["Content-Type"] = "application/json"
       body = JSON.stringify({ payload: body })
     }
     const res = await fetch(url, {
       method: "POST",
-      headers,
+      headers: { "Content-Type": "application/json" },
       body,
       credentials: "include",
     })
@@ -321,18 +344,6 @@ const sendMessage = async () => {
   }
 }
 
-const formatMessage = (raw) => {
-  try {
-    const parsed = JSON.parse(raw)
-    if (parsed && parsed.user && parsed.message) {
-      return `${parsed.user} : ${parsed.message}`
-    }
-  } catch {
-    // ignore
-  }
-  return raw
-}
-
 const loadChannels = async () => {
   try {
     const res = await fetch(`${gatewayUrl.value}/channels`, {
@@ -344,6 +355,39 @@ const loadChannels = async () => {
     channels.value = await res.json()
   } catch (err) {
     publishStatus.value = `load failed: ${err.message}`
+  }
+}
+
+const loadHistory = async () => {
+  if (!selectedChannelId.value) {
+    messages.value = []
+    return
+  }
+  try {
+    const res = await fetch(
+      `${gatewayUrl.value}/channels/${selectedChannelId.value}/messages?limit=50`,
+      { credentials: "include" }
+    )
+    if (!res.ok) {
+      throw new Error(await res.text())
+    }
+    const history = await res.json()
+    messages.value = history
+      .slice()
+      .reverse()
+      .map((item) => {
+        const parsed = parseMessage(item.payload || "", item.user_id)
+        return {
+          id: `history-${item.id}`,
+          time: new Date(item.created_at).toLocaleTimeString(),
+          text: parsed.text,
+          own: parsed.author && parsed.author === currentUser.value,
+          bytes: (item.payload || "").length,
+        }
+      })
+    scrollToBottom()
+  } catch (err) {
+    publishStatus.value = `history failed: ${err.message}`
   }
 }
 
@@ -368,6 +412,7 @@ const createChannel = async () => {
     newChannelName.value = ""
     await loadChannels()
     selectedChannelId.value = String(channel.id)
+    await loadHistory()
     connectStream()
   } catch (err) {
     publishStatus.value = `create failed: ${err.message}`
@@ -416,6 +461,7 @@ const login = async () => {
     currentUser.value = user.id
     authStatus.value = ""
     await loadChannels()
+    await loadHistory()
     connectStream()
     scheduleRefresh()
   } catch (err) {
@@ -431,6 +477,7 @@ const logout = async () => {
   authenticated.value = false
   currentUser.value = ""
   channels.value = []
+  messages.value = []
   disconnectStream()
   if (refreshTimer) {
     clearInterval(refreshTimer)
@@ -469,10 +516,47 @@ const checkSession = async () => {
     authenticated.value = true
     currentUser.value = user.id
     await loadChannels()
+    await loadHistory()
     connectStream()
     scheduleRefresh()
   }
 }
+
+const parseMessage = (raw, fallbackAuthor = "") => {
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed && parsed.user && parsed.message) {
+      return {
+        text: `${parsed.user} : ${parsed.message}`,
+        author: parsed.user,
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return { text: raw, author: fallbackAuthor }
+}
+
+const scrollToBottom = () => {
+  nextTick(() => {
+    const el = feedRef.value
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  })
+}
+
+const isNearBottom = () => {
+  const el = feedRef.value
+  if (!el) return true
+  const threshold = 40
+  return el.scrollHeight - el.scrollTop - el.clientHeight < threshold
+}
+
+watch(selectedChannelId, async () => {
+  if (!authenticated.value) return
+  await loadHistory()
+  connectStream()
+})
 
 onMounted(() => {
   intervalId = setInterval(pruneWindow, 1000)
@@ -486,6 +570,9 @@ onBeforeUnmount(() => {
   }
   if (refreshTimer) {
     clearInterval(refreshTimer)
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
   }
 })
 </script>
