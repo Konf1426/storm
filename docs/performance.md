@@ -18,6 +18,8 @@ Optional env vars:
 - `CHANNEL_ID` (use channel WS stream)
 - `DURATION` (default `30s`)
 - `PUB_VUS` / `WS_VUS` / `PUB_RATE`
+- `MODE` (`baseline` or `chaos`)
+- `THRESH_FAIL` / `THRESH_P95`
 
 ### Example results (Feb 3, 2026)
 - Duration: 30s
@@ -36,6 +38,20 @@ Optional env vars:
 - WS connect p95: ~1.84ms
 - HTTP req/s: ~45.6/s
 - WS msgs received: ~134.5/s
+
+### Chaos mode example
+```
+ACCESS_TOKEN=... MODE=chaos DURATION=5m PUB_VUS=100 WS_VUS=100 PUB_RATE=50 bash scripts/perf-load.sh
+```
+
+### Chaos run results (Feb 3, 2026)
+- Duration: 5m
+- VUs: 200 (100 HTTP + 100 WS)
+- HTTP p95: ~31.28ms
+- HTTP error rate: ~3.31% (below 10% threshold)
+- HTTP req/s: ~2744.7/s
+- WS connect p95: ~20.84ms
+- WS msgs received: ~115,667/s
 
 ## Profiling (pprof)
 

@@ -11,6 +11,8 @@ const PUB_RATE = Number(__ENV.PUB_RATE || 10);
 const WS_VUS = Number(__ENV.WS_VUS || 5);
 const PUB_VUS = Number(__ENV.PUB_VUS || 5);
 const DURATION = __ENV.DURATION || '30s';
+const THRESH_FAIL = Number(__ENV.THRESH_FAIL || 0.02);
+const THRESH_P95 = Number(__ENV.THRESH_P95 || 500);
 
 export const options = {
   scenarios: {
@@ -28,8 +30,8 @@ export const options = {
     },
   },
   thresholds: {
-    http_req_failed: ['rate<0.02'],
-    http_req_duration: ['p(95)<500'],
+    http_req_failed: [`rate<${THRESH_FAIL}`],
+    http_req_duration: [`p(95)<${THRESH_P95}`],
   },
 };
 
