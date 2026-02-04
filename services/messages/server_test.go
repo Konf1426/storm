@@ -183,3 +183,48 @@ func TestRunEntryUsesDeps(t *testing.T) {
 		t.Fatalf("expected deps to be called")
 	}
 }
+
+func TestRunEntryConnectError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Setenv("MESSAGES_ADDR", ":0")
+	t.Setenv("PPROF_ADDR", "")
+
+	deps := runtimeDeps{
+		NotifyContext: func(context.Context, ...os.Signal) (context.Context, context.CancelFunc) {
+			return ctx, cancel
+		},
+		Connect: func(string) (NatsConn, error) {
+			return nil, errors.New("dial error")
+		},
+		// Logf left nil to cover default.
+	}
+
+	if err := runEntry(deps); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestRunEntryWithPprofEnabled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Setenv("MESSAGES_ADDR", ":0")
+	t.Setenv("PPROF_ADDR", "127.0.0.1:0")
+
+	deps := runtimeDeps{
+		NotifyContext: func(context.Context, ...os.Signal) (context.Context, context.CancelFunc) {
+			return ctx, cancel
+		},
+		Connect: func(string) (NatsConn, error) {
+			return &fakeNatsConn{}, nil
+		},
+		Logf: func(string, ...any) {},
+	}
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	if err := runEntry(deps); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+}

@@ -53,6 +53,12 @@ ACCESS_TOKEN=... MODE=chaos DURATION=5m PUB_VUS=100 WS_VUS=100 PUB_RATE=50 bash 
 - WS connect p95: ~20.84ms
 - WS msgs received: ~115,667/s
 
+### Storm Day run (Feb 4, 2026)
+- Warm-up (50 HTTP + 50 WS, 2m): p95 6.3ms, error 0.00%, req/s 923.0
+- Spike 1 (150 HTTP + 150 WS, 3m): p95 81.31ms, error 0.00%, req/s 2501.5
+- Spike 2 (200 HTTP + 200 WS, 3m, chaos): p95 141.5ms, error 0.00%, req/s 2007.7
+- WS connect p95 (chaos): 28.42ms
+
 ## Profiling (pprof)
 
 Enable:

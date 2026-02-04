@@ -11,9 +11,9 @@
 - WebSocket connect p95: < 200ms
 - Error rate: < 1%
 
-## Timeline (example 60–90 min)
-1. Warm‑up (10 min): ramp traffic to steady load.
-2. Growth spike (15 min): 3–5x throughput.
+## Timeline (example 60-90 min)
+1. Warm-up (10 min): ramp traffic to steady load.
+2. Growth spike (15 min): 3-5x throughput.
 3. Incident 1 (10 min): NATS pause / gateway restart.
 4. Recovery (10 min): monitor stabilization.
 5. Incident 2 (10 min): latency injection on gateway/messages.
@@ -22,6 +22,7 @@
 
 ## Traffic Simulation
 - Use `scripts/perf-load.sh` with increased VUs/duration.
+- Or run the orchestrated script: `bash scripts/storm-day-runner.sh`
 - Example:
   ```
   ACCESS_TOKEN=... DURATION=10m PUB_VUS=200 WS_VUS=200 PUB_RATE=50 bash scripts/perf-load.sh
@@ -47,6 +48,7 @@
 - pprof snapshots (CPU + heap)
 - Prometheus screenshots or exported metrics
 - Incident timeline notes
+- Save results in `docs/storm-day-results.md`
 
 ## Roles during Storm Day
 - Incident commander

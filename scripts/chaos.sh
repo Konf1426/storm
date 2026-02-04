@@ -55,7 +55,7 @@ add_latency() {
   local svc="$1" delay="${2:-100ms}" jitter="${3:-20ms}" seconds="${4:-10}"
   local id
   id="$(require_running "$svc")" || return 0
-  log "Add latency to $svc (${delay} ± ${jitter}) for ${seconds}s"
+  log "Add latency to $svc (${delay} +/- ${jitter}) for ${seconds}s"
   if ! docker exec "$id" sh -c "command -v tc >/dev/null 2>&1"; then
     warn "tc not found in $svc container; installing iproute2 (ephemeral)"
     docker exec "$id" sh -c "apk add --no-cache iproute2 >/dev/null 2>&1" || {

@@ -1,4 +1,4 @@
-# Post‑Mortem Template
+# Post-Mortem Template
 
 ## Summary
 - What happened:
@@ -8,10 +8,10 @@
 
 ---
 
-# Post‑Mortem (Sample) — Gateway Restart During Storm Day
+# Post-Mortem (Sample) - Gateway Restart During Storm Day
 
 ## Summary
-- What happened: Gateway container was restarted during a high‑load run (Chaos scenario).
+- What happened: Gateway container was restarted during a high-load run (chaos scenario).
 - Impact: Short burst of HTTP failures; WS reconnects dropped briefly.
 - Duration: ~10s (restart window).
 - Severity: Low (SLOs still met for chaos thresholds).
@@ -36,7 +36,7 @@
 
 ## Corrective Actions
 - None (expected chaos).
-- Keep pre‑check for gateway availability before load start.
+- Keep pre-check for gateway availability before load start.
 
 ## Lessons Learned
 - Chaos events should be paired with relaxed thresholds.
@@ -55,7 +55,7 @@
 ## Detection & Response
 - How we detected it:
 - What worked:
-- What didn’t:
+- What did not:
 
 ## Metrics
 - Error rate:
@@ -63,8 +63,8 @@
 - Throughput:
 
 ## Corrective Actions
-- Short‑term fixes:
-- Long‑term fixes:
+- Short-term fixes:
+- Long-term fixes:
 - Owners + due dates:
 
 ## Lessons Learned

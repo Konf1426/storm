@@ -1,0 +1,32 @@
+name: CD (manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build gateway image
+        run: |
+          docker build -t storm-gateway:local services/gateway
+          docker save storm-gateway:local -o gateway-image.tar
+
+      - name: Build messages image
+        run: |
+          docker build -t storm-messages:local services/messages
+          docker save storm-messages:local -o messages-image.tar
+
+      - name: Upload images
+        uses: actions/upload-artifact@v4
+        with:
+          name: storm-images
+          path: |
+            gateway-image.tar
+            messages-image.tar

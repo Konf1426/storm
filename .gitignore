@@ -16,6 +16,7 @@ services/gateway/gateway
 
 # Logs
 *.log
+out/
 
 # IDE
 .vscode/

@@ -13,7 +13,7 @@ STORM is a distributed real-time messaging backend. The current MVP is built aro
 - Messages service (Go): NATS subscriber, logs messages, metrics
 - NATS: message broker
 - Prometheus + Grafana: metrics and dashboards
-- Postgres + Redis: provisioned (not yet used in code)
+- Postgres + Redis: used for users/channels/messages and presence
 - Frontend (Vue): realtime dashboard using SSE
 
 ## System Flow (Current)

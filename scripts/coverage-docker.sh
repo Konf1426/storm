@@ -4,28 +4,27 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVICES=("$ROOT_DIR/services/gateway" "$ROOT_DIR/services/messages")
 MIN_COVERAGE="${MIN_COVERAGE:-80.0}"
-GO_CMD="${GO_CMD:-go}"
+GO_IMAGE="${GO_IMAGE:-golang:1.24-alpine}"
 
-if ! command -v "$GO_CMD" >/dev/null 2>&1; then
-  echo "go is not installed or not in PATH (set GO_CMD or use scripts/coverage-docker.sh)" >&2
-  exit 1
-fi
+log() { printf "\n==> %s\n" "$1"; }
 
 for svc in "${SERVICES[@]}"; do
-  echo "==> Coverage: $(basename "$svc")"
-  COVER_FILE="$(mktemp)"
-  (cd "$svc" && "$GO_CMD" test ./... -coverprofile "$COVER_FILE")
-  TOTAL_LINE=$((cd "$svc" && "$GO_CMD" tool cover -func "$COVER_FILE" | tail -n 1) | tee /dev/stderr)
-  TOTAL_PCT=$(printf "%s" "$TOTAL_LINE" | awk '{print $3}' | tr -d '%')
+  log "Coverage (docker): $(basename "$svc")"
+  docker run --rm \
+    -v "$svc:/app" \
+    -w /app \
+    "$GO_IMAGE" sh -lc \
+    "/usr/local/go/bin/go test ./... -coverprofile /tmp/cover.out >/tmp/test.out && \
+     /usr/local/go/bin/go tool cover -func /tmp/cover.out | tail -n 1" | tee /tmp/cover_line.txt
+
+  TOTAL_PCT=$(awk '{print $3}' /tmp/cover_line.txt | tr -d '%')
   if [ -z "$TOTAL_PCT" ]; then
     echo "[WARN] unable to parse coverage percentage" >&2
   else
     awk -v got="$TOTAL_PCT" -v min="$MIN_COVERAGE" 'BEGIN { exit (got+0 < min+0) }' || {
       echo "[FAIL] coverage ${TOTAL_PCT}% < ${MIN_COVERAGE}% for $(basename "$svc")" >&2
-      rm -f "$COVER_FILE"
       exit 1
     }
   fi
-  rm -f "$COVER_FILE"
-  echo
+  rm -f /tmp/cover_line.txt
 done
