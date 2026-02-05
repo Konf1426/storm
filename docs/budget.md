@@ -28,3 +28,10 @@ Approx subtotal (excluding data transfer): ~$86-90/mo
 1) Minimal (dev/demo): 1x EC2, 1x RDS micro, 1x Redis micro, ALB minimal.
 2) Medium: 2-3x EC2, RDS small, Redis small, ALB avec 2-3 LCU.
 3) Haute charge: autoscaling >5 instances, DB/cache plus grands, couts > 700 EUR sans optimisations.
+
+## Tableau de comparaison (a valider)
+| Scenario | EC2 | DB | Redis | ALB/LCU | Estimation |
+| --- | --- | --- | --- | --- | --- |
+| Minimal | 1 x t3a.medium | db.t4g.micro | cache.t4g.micro | 1 LCU | ~90 USD/mo |
+| Medium | 3 x t3a.medium | db.t4g.small | cache.t4g.small | 2 LCU | ~250-300 USD/mo |
+| Haute charge | 6+ x t3a.medium | db.m6g.large | cache.m6g.large | 3+ LCU | > 700 USD/mo |

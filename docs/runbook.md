@@ -15,6 +15,11 @@ curl -fsS http://localhost:8080/healthz
 curl -fsS http://localhost:8080/ping-nats
 ```
 
+## Smoke tests
+```
+bash scripts/smoke-test.sh
+```
+
 ## Deploiement (cloud)
 1) Pousser les images en registry (ECR).
 2) Appliquer l'IaC.
