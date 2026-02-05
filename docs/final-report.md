@@ -44,6 +44,6 @@ Scenarios disponibles via `scripts/chaos.sh`:
 Plan defini dans `docs/storm-day.md` (SLOs + timeline + roles). Execution reelle effectuee le Feb 4, 2026. Resultats dans `docs/storm-day-results.md` et post-mortem dans `docs/post-mortem-20260204.md`.
 
 ## Ecart / Reste a faire
-- IaC + deploiement cloud: skeleton Terraform ajoute, a completer et securiser.
-- Budget cloud detaille: template ajoute dans `docs/budget.md`.
+- IaC cloud: stack AWS completee (VPC, ALB, ASG, RDS, Redis, ECR). A durcir pour prod (TLS, securite, monitoring managé).
+- Budget cloud detaille: chiffrage indicatif dans `docs/budget.md`, a valider via AWS Pricing Calculator.
 - Soutenance (slides + recit final).

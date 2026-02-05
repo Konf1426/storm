@@ -2,6 +2,22 @@ name: CD (manual)
 
 on:
   workflow_dispatch:
+    inputs:
+      region:
+        description: "AWS region"
+        required: true
+        default: "eu-west-1"
+      account_id:
+        description: "AWS account ID"
+        required: true
+      image_tag:
+        description: "Image tag"
+        required: true
+        default: "latest"
+      push_ecr:
+        description: "Push images to ECR"
+        required: true
+        default: "true"
 
 jobs:
   build-images:
@@ -13,15 +29,37 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Configure AWS credentials
+        if: ${{ inputs.push_ecr == 'true' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ inputs.region }}
+
+      - name: Login to ECR
+        if: ${{ inputs.push_ecr == 'true' }}
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: Build gateway image
         run: |
-          docker build -t storm-gateway:local services/gateway
-          docker save storm-gateway:local -o gateway-image.tar
+          docker build -t storm-gateway:${{ inputs.image_tag }} services/gateway
+          docker save storm-gateway:${{ inputs.image_tag }} -o gateway-image.tar
 
       - name: Build messages image
         run: |
-          docker build -t storm-messages:local services/messages
-          docker save storm-messages:local -o messages-image.tar
+          docker build -t storm-messages:${{ inputs.image_tag }} services/messages
+          docker save storm-messages:${{ inputs.image_tag }} -o messages-image.tar
+
+      - name: Push images to ECR
+        if: ${{ inputs.push_ecr == 'true' }}
+        run: |
+          GATEWAY_REPO=${{ inputs.account_id }}.dkr.ecr.${{ inputs.region }}.amazonaws.com/storm-gateway
+          MESSAGES_REPO=${{ inputs.account_id }}.dkr.ecr.${{ inputs.region }}.amazonaws.com/storm-messages
+          docker tag storm-gateway:${{ inputs.image_tag }} ${GATEWAY_REPO}:${{ inputs.image_tag }}
+          docker tag storm-messages:${{ inputs.image_tag }} ${MESSAGES_REPO}:${{ inputs.image_tag }}
+          docker push ${GATEWAY_REPO}:${{ inputs.image_tag }}
+          docker push ${MESSAGES_REPO}:${{ inputs.image_tag }}
 
       - name: Upload images
         uses: actions/upload-artifact@v4

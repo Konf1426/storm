@@ -28,6 +28,12 @@
   ACCESS_TOKEN=... DURATION=10m PUB_VUS=200 WS_VUS=200 PUB_RATE=50 bash scripts/perf-load.sh
   ```
 
+## Cloud Execution (when infra ready)
+1) Pousser images en registry (ECR).
+2) Deployer infra (Terraform aws-prod).
+3) Lancer le Storm Day depuis des generateurs distribues.
+4) Capturer metriques + incidents + post-mortem.
+
 ## Incident Scenarios
 - `bash scripts/chaos.sh nats-pause`
 - `bash scripts/chaos.sh gateway-restart`
