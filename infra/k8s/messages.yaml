@@ -16,6 +16,7 @@ spec:
       containers:
         - name: messages
           image: storm-messages:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
             - containerPort: 6061
