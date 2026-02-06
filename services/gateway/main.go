@@ -23,6 +23,7 @@ type runtimeDeps struct {
 	ListenAndServe  func(string, http.Handler) error
 }
 
+// #nosec G402 -- TLS is terminated at ingress in prod; dev uses plaintext.
 func runMain(deps runtimeDeps) error {
 	if deps.NatsConnect == nil {
 		deps.NatsConnect = nats.Connect
