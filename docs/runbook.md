@@ -30,6 +30,9 @@ bash scripts/smoke-test.sh
 kubectl apply -k infra/k8s
 ```
 
+## CI/CD Kubernetes
+Voir `docs/ci-cd-k8s.md`
+
 ## Alignement config (Docker <-> K8s)
 - Docker: utiliser `.env` (voir `.env.example`)
 - K8s: `infra/k8s/configmap.yaml` + `infra/k8s/secret.yaml`
