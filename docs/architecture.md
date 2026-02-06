@@ -15,6 +15,7 @@ STORM is a distributed real-time messaging backend. The current MVP is built aro
 - Prometheus + Grafana: metrics and dashboards
 - Postgres + Redis: used for users/channels/messages and presence
 - Frontend (Vue): realtime dashboard using SSE
+- Kubernetes manifests: baseline deployment in `infra/k8s`
 
 ## System Flow (Current)
 1) Client sends HTTP POST to `/publish?subject=storm.events`.

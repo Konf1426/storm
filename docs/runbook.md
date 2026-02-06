@@ -25,6 +25,15 @@ bash scripts/smoke-test.sh
 2) Appliquer l'IaC.
 3) Verifier ALB /healthz.
 
+## Deploiement (kubernetes)
+```
+kubectl apply -k infra/k8s
+```
+
+## Alignement config (Docker <-> K8s)
+- Docker: utiliser `.env` (voir `.env.example`)
+- K8s: `infra/k8s/configmap.yaml` + `infra/k8s/secret.yaml`
+
 ## Rollback
 1) Re-deployer l'image precedente (tag N-1).
 2) Redemarrer les services.
