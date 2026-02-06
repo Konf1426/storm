@@ -275,6 +275,30 @@ func (s stubNats) ChanSubscribe(string, chan *nats.Msg) (Subscription, error) {
 
 func (s stubNats) IsConnected() bool { return true }
 
+type sendingNats struct {
+	Msg     *nats.Msg
+	SendNil bool
+}
+
+func (s sendingNats) Publish(string, []byte) error { return nil }
+
+func (s sendingNats) ChanSubscribe(string, ch chan *nats.Msg) (Subscription, error) {
+	msg := s.Msg
+	sendNil := s.SendNil
+	go func() {
+		if sendNil {
+			ch <- nil
+			return
+		}
+		if msg != nil {
+			ch <- msg
+		}
+	}()
+	return stubSub{}, nil
+}
+
+func (s sendingNats) IsConnected() bool { return true }
+
 type flushRecorderAdditional struct {
 	code   int
 	header http.Header
@@ -367,5 +391,53 @@ func TestWriteSSEMultiline(t *testing.T) {
 	}
 	if got := buf.String(); got != "data: a\ndata: b\n\n" {
 		t.Fatalf("unexpected SSE payload: %q", got)
+	}
+}
+
+func TestStreamSSEMessageAdditional(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	ctx, cancel := context.WithCancel(req.Context())
+	req = req.WithContext(ctx)
+
+	rec := newFlushRecorderAdditional()
+	done := make(chan struct{})
+	go func() {
+		streamSSE(rec, req, sendingNats{Msg: &nats.Msg{Data: []byte("hello")}}, "storm.events")
+		close(done)
+	}()
+
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("stream did not stop")
+	}
+	if !strings.Contains(rec.body.String(), "data: hello") {
+		t.Fatalf("expected SSE message, got %q", rec.body.String())
+	}
+}
+
+func TestStreamSSENilMessageAdditional(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	ctx, cancel := context.WithCancel(req.Context())
+	req = req.WithContext(ctx)
+
+	rec := newFlushRecorderAdditional()
+	done := make(chan struct{})
+	go func() {
+		streamSSE(rec, req, sendingNats{SendNil: true}, "storm.events")
+		close(done)
+	}()
+
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("stream did not stop")
+	}
+	if !strings.Contains(rec.body.String(), ": stream ready") {
+		t.Fatalf("expected stream ready prelude")
 	}
 }
