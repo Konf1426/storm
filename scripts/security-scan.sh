@@ -29,6 +29,7 @@ fi
 
 GOSEC_EXCLUDE="${GOSEC_EXCLUDE:-G402}"
 GOSEC_STRICT="${GOSEC_STRICT:-1}"
+GOSEC_SKIP="${GOSEC_SKIP:-0}"
 
 for svc in "${SERVICES[@]}"; do
   log "Dependency scan: $(basename "$svc")"
@@ -39,7 +40,9 @@ for svc in "${SERVICES[@]}"; do
     warn "govulncheck skipped"
   fi
 
-  if [ "$HAS_GOSEC" -eq 1 ]; then
+  if [ "$GOSEC_SKIP" -eq 1 ]; then
+    warn "gosec skipped by GOSEC_SKIP"
+  elif [ "$HAS_GOSEC" -eq 1 ]; then
     if (cd "$svc" && gosec -exclude "$GOSEC_EXCLUDE" ./...); then
       pass "gosec complete"
     else
