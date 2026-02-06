@@ -28,6 +28,7 @@ else
 fi
 
 GOSEC_EXCLUDE="${GOSEC_EXCLUDE:-G402}"
+GOSEC_STRICT="${GOSEC_STRICT:-1}"
 
 for svc in "${SERVICES[@]}"; do
   log "Dependency scan: $(basename "$svc")"
@@ -39,8 +40,14 @@ for svc in "${SERVICES[@]}"; do
   fi
 
   if [ "$HAS_GOSEC" -eq 1 ]; then
-    (cd "$svc" && gosec -exclude "$GOSEC_EXCLUDE" ./...)
-    pass "gosec complete"
+    if (cd "$svc" && gosec -exclude "$GOSEC_EXCLUDE" ./...); then
+      pass "gosec complete"
+    else
+      warn "gosec found issues"
+      if [ "$GOSEC_STRICT" -eq 1 ]; then
+        exit 1
+      fi
+    fi
   else
     warn "gosec skipped"
   fi
