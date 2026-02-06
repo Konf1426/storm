@@ -282,7 +282,7 @@ type sendingNats struct {
 
 func (s sendingNats) Publish(string, []byte) error { return nil }
 
-func (s sendingNats) ChanSubscribe(string, ch chan *nats.Msg) (Subscription, error) {
+func (s sendingNats) ChanSubscribe(_ string, ch chan *nats.Msg) (Subscription, error) {
 	msg := s.Msg
 	sendNil := s.SendNil
 	go func() {
