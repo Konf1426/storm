@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/nats-io/nats.go"
 )
 
 func TestSubjectFromRequestInvalid(t *testing.T) {
