@@ -197,7 +197,7 @@ func TestSignToken(t *testing.T) {
 	}
 }
 
-func TestWriteJSON(t *testing.T) {
+func TestWriteJSONAdditional(t *testing.T) {
 	rec := httptest.NewRecorder()
 	writeJSON(rec, http.StatusCreated, map[string]string{"status": "ok"})
 	if rec.Code != http.StatusCreated {
@@ -242,7 +242,7 @@ func TestTokenFromRequestQueryFallback(t *testing.T) {
 	}
 }
 
-func TestSubjectFromRequestDefault(t *testing.T) {
+func TestSubjectFromRequestDefaultAdditional(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/publish", nil)
 	got, err := subjectFromRequest(req)
 	if err != nil {
