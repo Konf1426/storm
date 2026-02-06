@@ -1351,12 +1351,12 @@ func TestNatsAdapterPublishSubscribe(t *testing.T) {
 	}
 	t.Cleanup(ns.Shutdown)
 
-	//gosec:ignore G402 -- test uses local NATS without TLS.
+	// #nosec G402 -- test uses local NATS without TLS.
 	nc, err := nats.Connect(ns.ClientURL())
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
-	//gosec:ignore G402 -- TLS handled upstream; close is safe.
+	// #nosec G402 -- TLS handled upstream; close is safe.
 	defer nc.Close()
 
 	adapter := NewNatsAdapter(nc)

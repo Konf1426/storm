@@ -39,7 +39,7 @@ func runMain(deps runtimeDeps) error {
 	}
 
 	natsURL := env("NATS_URL", "nats://localhost:4222")
-	//gosec:ignore G402 -- TLS is terminated at ingress in prod; dev uses plaintext.
+	// #nosec G402 -- TLS is terminated at ingress in prod; dev uses plaintext.
 	nc, err := deps.NatsConnect(
 		natsURL,
 		nats.Name("storm-gateway"),
@@ -50,7 +50,7 @@ func runMain(deps runtimeDeps) error {
 	if err != nil {
 		return err
 	}
-	//gosec:ignore G402 -- TLS handled upstream; close is safe.
+	// #nosec G402 -- TLS handled upstream; close is safe.
 	defer nc.Close()
 
 	ctx := context.Background()
@@ -92,13 +92,13 @@ func runMain(deps runtimeDeps) error {
 	if pprofAddr := env("PPROF_ADDR", ""); pprofAddr != "" {
 		go func() {
 			log.Printf("pprof listening on %s", pprofAddr)
-			//gosec:ignore G402 -- dev-only pprof, TLS upstream.
+			// #nosec G402 -- dev-only pprof, TLS upstream.
 			if err := http.ListenAndServe(pprofAddr, nil); err != nil {
 				log.Printf("pprof error: %v", err)
 			}
 		}()
 	}
-	//gosec:ignore G402 -- TLS at ingress.
+	// #nosec G402 -- TLS at ingress.
 	return deps.ListenAndServe(addr, NewRouter(NewNatsAdapter(nc), store, presence, auth))
 }
 
