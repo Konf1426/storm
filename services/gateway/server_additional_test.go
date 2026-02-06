@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -153,5 +154,45 @@ func TestAuthRefreshExpiredToken(t *testing.T) {
 
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", w.Code)
+	}
+}
+
+type errWriter struct{}
+
+func (errWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
+}
+
+func TestWriteSSE(t *testing.T) {
+	var buf bytes.Buffer
+	if err := writeSSE(&buf, "hello"); err != nil {
+		t.Fatalf("writeSSE error: %v", err)
+	}
+	if got := buf.String(); got != "data: hello\n\n" {
+		t.Fatalf("unexpected SSE payload: %q", got)
+	}
+}
+
+func TestWriteSSEError(t *testing.T) {
+	if err := writeSSE(errWriter{}, "hello"); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestSignToken(t *testing.T) {
+	secret := []byte("secret")
+	tokenStr, exp := signToken(secret, "user-1", time.Minute)
+	if exp.Before(time.Now()) {
+		t.Fatalf("expected future expiration")
+	}
+	claims := &jwt.RegisteredClaims{}
+	parsed, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
+		return secret, nil
+	})
+	if err != nil || !parsed.Valid {
+		t.Fatalf("token parse failed: %v", err)
+	}
+	if claims.Subject != "user-1" {
+		t.Fatalf("unexpected subject: %q", claims.Subject)
 	}
 }
