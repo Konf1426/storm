@@ -196,3 +196,59 @@ func TestSignToken(t *testing.T) {
 		t.Fatalf("unexpected subject: %q", claims.Subject)
 	}
 }
+
+func TestWriteJSON(t *testing.T) {
+	rec := httptest.NewRecorder()
+	writeJSON(rec, http.StatusCreated, map[string]string{"status": "ok"})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", rec.Code)
+	}
+	if body := rec.Body.String(); body == "" || body[0] != '{' {
+		t.Fatalf("unexpected body: %q", body)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/json" {
+		t.Fatalf("unexpected content-type: %q", got)
+	}
+}
+
+func TestTokenFromCookieMissing(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
+	if got := tokenFromCookie(req, "missing"); got != "" {
+		t.Fatalf("expected empty token, got %q", got)
+	}
+}
+
+func TestTokenFromRequestUsesBearerFirst(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/ws", nil)
+	req.Header.Set("Authorization", "Bearer header-token")
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: "cookie-token"})
+	if got := tokenFromRequest(req); got != "header-token" {
+		t.Fatalf("expected header token, got %q", got)
+	}
+}
+
+func TestTokenFromRequestCookieFallback(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/ws", nil)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: "cookie-token"})
+	if got := tokenFromRequest(req); got != "cookie-token" {
+		t.Fatalf("expected cookie token, got %q", got)
+	}
+}
+
+func TestTokenFromRequestQueryFallback(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/ws?token=query-token", nil)
+	if got := tokenFromRequest(req); got != "query-token" {
+		t.Fatalf("expected query token, got %q", got)
+	}
+}
+
+func TestSubjectFromRequestDefault(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/publish", nil)
+	got, err := subjectFromRequest(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != defaultSubject {
+		t.Fatalf("expected default subject, got %q", got)
+	}
+}
