@@ -480,3 +480,60 @@ func TestTokenFromRequestBearerEmptyAdditional(t *testing.T) {
 		t.Fatalf("expected empty token, got %q", got)
 	}
 }
+
+type errStore struct{}
+
+func (errStore) EnsureUser(context.Context, string) error { return nil }
+func (errStore) CreateUser(context.Context, string, string, string) (User, error) {
+	return User{}, nil
+}
+func (errStore) GetUser(context.Context, string) (User, error) { return User{}, nil }
+func (errStore) ListUsers(context.Context) ([]User, error)     { return nil, nil }
+func (errStore) UpdateUser(context.Context, string, string, string) (User, error) {
+	return User{}, nil
+}
+func (errStore) DeleteUser(context.Context, string) error { return nil }
+func (errStore) VerifyUserPassword(context.Context, string, string) (User, error) {
+	return User{}, nil
+}
+func (errStore) SaveRefreshToken(context.Context, string, string, time.Time) error {
+	return errors.New("save refresh failed")
+}
+func (errStore) GetRefreshToken(context.Context, string) (RefreshToken, error) { return RefreshToken{}, nil }
+func (errStore) RevokeRefreshToken(context.Context, string) error               { return nil }
+func (errStore) CreateChannel(context.Context, string, string) (Channel, error) {
+	return Channel{}, nil
+}
+func (errStore) ListChannels(context.Context) ([]Channel, error) { return nil, nil }
+func (errStore) EnsureMember(context.Context, int64, string) error {
+	return nil
+}
+func (errStore) SaveChannelMessage(context.Context, int64, string, []byte) (Message, error) {
+	return Message{}, nil
+}
+func (errStore) ListMessages(context.Context, int64, int) ([]Message, error) { return nil, nil }
+func (errStore) SaveMessage(context.Context, string, []byte) error           { return nil }
+func (errStore) Close() error                                                { return nil }
+
+func TestIssueSessionStoreErrorAdditional(t *testing.T) {
+	cfg := AuthConfig{
+		Secret:        []byte("test-secret"),
+		RefreshSecret: []byte("refresh-secret"),
+		AccessTTL:     time.Minute,
+		RefreshTTL:    2 * time.Minute,
+	}
+	w := httptest.NewRecorder()
+	issueSession(w, cfg, errStore{}, "user-1")
+	cookies := w.Result().Cookies()
+	if len(cookies) < 2 {
+		t.Fatalf("expected cookies to be set")
+	}
+}
+
+func TestReadBodyTooLargeAdditional(t *testing.T) {
+	payload := bytes.Repeat([]byte("a"), maxBodyBytes+1)
+	req := httptest.NewRequest(http.MethodPost, "/publish", bytes.NewBuffer(payload))
+	if _, err := readBody(nil, req); err == nil {
+		t.Fatalf("expected payload too large error")
+	}
+}
