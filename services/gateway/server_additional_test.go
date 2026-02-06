@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -250,5 +251,120 @@ func TestSubjectFromRequestDefaultAdditional(t *testing.T) {
 	}
 	if got != defaultSubject {
 		t.Fatalf("expected default subject, got %q", got)
+	}
+}
+
+type stubSub struct{}
+
+func (stubSub) Unsubscribe() error { return nil }
+
+type stubNats struct {
+	SubscribeErr error
+	Msgs         chan *nats.Msg
+}
+
+func (s stubNats) Publish(string, []byte) error { return nil }
+
+func (s stubNats) ChanSubscribe(string, chan *nats.Msg) (Subscription, error) {
+	if s.SubscribeErr != nil {
+		return nil, s.SubscribeErr
+	}
+	return stubSub{}, nil
+}
+
+func (s stubNats) IsConnected() bool { return true }
+
+type flushRecorderAdditional struct {
+	code   int
+	header http.Header
+	body   bytes.Buffer
+}
+
+func newFlushRecorderAdditional() *flushRecorderAdditional {
+	return &flushRecorderAdditional{header: make(http.Header)}
+}
+
+func (f *flushRecorderAdditional) Header() http.Header { return f.header }
+
+func (f *flushRecorderAdditional) Write(p []byte) (int, error) {
+	if f.code == 0 {
+		f.code = http.StatusOK
+	}
+	return f.body.Write(p)
+}
+
+func (f *flushRecorderAdditional) WriteHeader(code int) { f.code = code }
+
+func (f *flushRecorderAdditional) Flush() {}
+
+type noFlushRecorderAdditional struct {
+	code   int
+	header http.Header
+	body   bytes.Buffer
+}
+
+func newNoFlushRecorderAdditional() *noFlushRecorderAdditional {
+	return &noFlushRecorderAdditional{header: make(http.Header)}
+}
+
+func (n *noFlushRecorderAdditional) Header() http.Header { return n.header }
+
+func (n *noFlushRecorderAdditional) Write(p []byte) (int, error) {
+	if n.code == 0 {
+		n.code = http.StatusOK
+	}
+	return n.body.Write(p)
+}
+
+func (n *noFlushRecorderAdditional) WriteHeader(code int) { n.code = code }
+
+func TestStreamSSEUnsupportedWriterAdditional(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	rec := newNoFlushRecorderAdditional()
+	streamSSE(rec, req, stubNats{}, "storm.events")
+	if rec.code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rec.code)
+	}
+	if !strings.Contains(rec.body.String(), "streaming unsupported") {
+		t.Fatalf("unexpected body: %q", rec.body.String())
+	}
+}
+
+func TestStreamSSESubscribeErrorAdditional(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	rec := newFlushRecorderAdditional()
+	streamSSE(rec, req, stubNats{SubscribeErr: errors.New("boom")}, "storm.events")
+	if rec.code != http.StatusBadGateway {
+		t.Fatalf("expected 502, got %d", rec.code)
+	}
+	if !strings.Contains(rec.body.String(), "subscribe failed") {
+		t.Fatalf("unexpected body: %q", rec.body.String())
+	}
+}
+
+func TestStreamSSEHeartbeatAdditional(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	ctx, cancel := context.WithCancel(req.Context())
+	req = req.WithContext(ctx)
+
+	rec := newFlushRecorderAdditional()
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		cancel()
+	}()
+
+	streamSSE(rec, req, stubNats{}, "storm.events")
+	if !strings.Contains(rec.body.String(), ": stream ready") {
+		t.Fatalf("expected stream ready prelude")
+	}
+}
+
+func TestWriteSSEMultiline(t *testing.T) {
+	var buf bytes.Buffer
+	if err := writeSSE(&buf, "a\nb"); err != nil {
+		t.Fatalf("writeSSE error: %v", err)
+	}
+	if got := buf.String(); got != "data: a\ndata: b\n\n" {
+		t.Fatalf("unexpected SSE payload: %q", got)
 	}
 }
