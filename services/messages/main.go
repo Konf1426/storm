@@ -31,8 +31,7 @@ func runEntry(deps runtimeDeps) error {
 	}
 	if deps.Connect == nil {
 		deps.Connect = func(url string) (NatsConn, error) {
-			//nolint:gosec // TLS is terminated at ingress in prod; dev uses plaintext.
-			return nats.Connect(
+			return nats.Connect( // #nosec G402 -- TLS is terminated at ingress in prod; dev uses plaintext.
 				url,
 				nats.Name("storm-messages"),
 				nats.Timeout(3*time.Second),
@@ -57,8 +56,7 @@ func runEntry(deps runtimeDeps) error {
 	if pprofAddr != "" {
 		go func() {
 			deps.Logf("pprof listening on %s", pprofAddr)
-			//nolint:gosec // dev-only pprof, TLS upstream.
-			if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+			if err := http.ListenAndServe(pprofAddr, nil); err != nil { // #nosec G402 -- dev-only pprof, TLS upstream.
 				deps.Logf("pprof error: %v", err)
 			}
 		}()

@@ -38,8 +38,7 @@ func runMain(deps runtimeDeps) error {
 	}
 
 	natsURL := env("NATS_URL", "nats://localhost:4222")
-	//nolint:gosec // TLS is terminated at ingress in prod; dev uses plaintext.
-	nc, err := deps.NatsConnect(
+	nc, err := deps.NatsConnect( // #nosec G402 -- TLS is terminated at ingress in prod; dev uses plaintext.
 		natsURL,
 		nats.Name("storm-gateway"),
 		nats.Timeout(3*time.Second),
@@ -49,7 +48,7 @@ func runMain(deps runtimeDeps) error {
 	if err != nil {
 		return err
 	}
-	defer nc.Close()
+	defer nc.Close() // #nosec G402 -- TLS handled upstream; close is safe.
 
 	ctx := context.Background()
 	pgDSN := env("POSTGRES_DSN", "postgres://storm:storm@postgres:5432/storm?sslmode=disable")
@@ -90,14 +89,12 @@ func runMain(deps runtimeDeps) error {
 	if pprofAddr := env("PPROF_ADDR", ""); pprofAddr != "" {
 		go func() {
 			log.Printf("pprof listening on %s", pprofAddr)
-			//nolint:gosec // dev-only pprof, TLS upstream.
-			if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+			if err := http.ListenAndServe(pprofAddr, nil); err != nil { // #nosec G402 -- dev-only pprof, TLS upstream.
 				log.Printf("pprof error: %v", err)
 			}
 		}()
 	}
-	//nolint:gosec // TLS at ingress.
-	return deps.ListenAndServe(addr, NewRouter(NewNatsAdapter(nc), store, presence, auth))
+	return deps.ListenAndServe(addr, NewRouter(NewNatsAdapter(nc), store, presence, auth)) // #nosec G402 -- TLS at ingress.
 }
 
 func connectPostgres(ctx context.Context, dsn string, attempts int, delay time.Duration) (Store, error) {
