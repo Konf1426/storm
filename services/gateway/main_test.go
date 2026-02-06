@@ -102,6 +102,7 @@ func TestRunMainUsesDeps(t *testing.T) {
 	)
 	listenErr := errors.New("listen error")
 	deps := runtimeDeps{
+		//gosec:ignore G402 -- test uses local NATS without TLS.
 		NatsConnect: nats.Connect,
 		ConnectPostgres: func(context.Context, string, int, time.Duration) (Store, error) {
 			pgCalled = true
