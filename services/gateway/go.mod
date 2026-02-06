@@ -2,7 +2,7 @@ module storm/gateway
 
 go 1.24.0
 
-toolchain go1.24.12
+toolchain go1.24.13
 
 require (
 	github.com/alicebob/miniredis/v2 v2.31.0
