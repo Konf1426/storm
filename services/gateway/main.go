@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
-	_ "net/http/pprof"
+	"net/http/pprof"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -35,7 +35,17 @@ func runMain(deps runtimeDeps) error {
 		deps.ConnectRedis = connectRedis
 	}
 	if deps.ListenAndServe == nil {
-		deps.ListenAndServe = http.ListenAndServe
+		deps.ListenAndServe = func(addr string, handler http.Handler) error {
+			srv := &http.Server{
+				Addr:              addr,
+				Handler:           handler,
+				ReadHeaderTimeout: 5 * time.Second,
+				ReadTimeout:       15 * time.Second,
+				WriteTimeout:      15 * time.Second,
+				IdleTimeout:       60 * time.Second,
+			}
+			return srv.ListenAndServe()
+		}
 	}
 
 	natsURL := env("NATS_URL", "nats://localhost:4222")
@@ -92,8 +102,22 @@ func runMain(deps runtimeDeps) error {
 	if pprofAddr := env("PPROF_ADDR", ""); pprofAddr != "" {
 		go func() {
 			log.Printf("pprof listening on %s", pprofAddr)
+			mux := http.NewServeMux()
+			mux.HandleFunc("/debug/pprof/", pprof.Index)
+			mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+			mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+			mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+			mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+			pprofSrv := &http.Server{
+				Addr:              pprofAddr,
+				Handler:           mux,
+				ReadHeaderTimeout: 5 * time.Second,
+				ReadTimeout:       15 * time.Second,
+				WriteTimeout:      15 * time.Second,
+				IdleTimeout:       60 * time.Second,
+			}
 			// #nosec G402 -- dev-only pprof, TLS upstream.
-			if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+			if err := pprofSrv.ListenAndServe(); err != nil {
 				log.Printf("pprof error: %v", err)
 			}
 		}()

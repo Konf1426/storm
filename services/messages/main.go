@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
-	_ "net/http/pprof"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -57,8 +57,22 @@ func runEntry(deps runtimeDeps) error {
 	if pprofAddr != "" {
 		go func() {
 			deps.Logf("pprof listening on %s", pprofAddr)
+			mux := http.NewServeMux()
+			mux.HandleFunc("/debug/pprof/", pprof.Index)
+			mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+			mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+			mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+			mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+			pprofSrv := &http.Server{
+				Addr:              pprofAddr,
+				Handler:           mux,
+				ReadHeaderTimeout: 5 * time.Second,
+				ReadTimeout:       15 * time.Second,
+				WriteTimeout:      15 * time.Second,
+				IdleTimeout:       60 * time.Second,
+			}
 			// #nosec G402 -- dev-only pprof, TLS upstream.
-			if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+			if err := pprofSrv.ListenAndServe(); err != nil {
 				deps.Logf("pprof error: %v", err)
 			}
 		}()

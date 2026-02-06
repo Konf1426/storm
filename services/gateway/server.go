@@ -604,9 +604,15 @@ func wsHandler(nc NatsClient, store Store, presence Presence) http.HandlerFunc {
 		}()
 
 		conn.SetReadLimit(maxBodyBytes)
-		conn.SetReadDeadline(time.Now().Add(90 * time.Second))
+		if err := conn.SetReadDeadline(time.Now().Add(90 * time.Second)); err != nil {
+			log.Printf("ws read deadline failed: %v", err)
+			return
+		}
 		conn.SetPongHandler(func(string) error {
-			conn.SetReadDeadline(time.Now().Add(90 * time.Second))
+			if err := conn.SetReadDeadline(time.Now().Add(90 * time.Second)); err != nil {
+				log.Printf("ws pong deadline failed: %v", err)
+				return err
+			}
 			return nil
 		})
 
@@ -625,7 +631,10 @@ func wsHandler(nc NatsClient, store Store, presence Presence) http.HandlerFunc {
 					if !ok {
 						return
 					}
-					conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+					if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+						log.Printf("ws write deadline failed: %v", err)
+						return
+					}
 					if err := conn.WriteMessage(websocket.TextMessage, msg.Data); err != nil {
 						return
 					}

@@ -27,7 +27,14 @@ func runMessages(ctx context.Context, nc NatsConn, subject, addr string) error {
 		return err
 	}
 
-	srv := &http.Server{Addr: addr, Handler: NewRouter()}
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           NewRouter(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
 
 	errCh := make(chan error, 1)
 	go func() {
