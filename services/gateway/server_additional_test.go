@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -439,5 +440,43 @@ func TestStreamSSENilMessageAdditional(t *testing.T) {
 	}
 	if !strings.Contains(rec.body.String(), ": stream ready") {
 		t.Fatalf("expected stream ready prelude")
+	}
+}
+
+type errReadCloser struct{}
+
+func (errReadCloser) Read([]byte) (int, error) { return 0, errors.New("read failed") }
+func (errReadCloser) Close() error             { return nil }
+
+func TestReadBodyNoWriterAdditional(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/publish", io.NopCloser(strings.NewReader("hello")))
+	body, err := readBody(nil, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(body) != "hello" {
+		t.Fatalf("unexpected body: %q", string(body))
+	}
+}
+
+func TestReadBodyErrorAdditional(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/publish", errReadCloser{})
+	if _, err := readBody(nil, req); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestUserFromContextInvalidTypeAdditional(t *testing.T) {
+	ctx := context.WithValue(context.Background(), ctxUserIDKey{}, 123)
+	if got := userFromContext(ctx); got != "" {
+		t.Fatalf("expected empty user, got %q", got)
+	}
+}
+
+func TestTokenFromRequestBearerEmptyAdditional(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/ws?token=query", nil)
+	req.Header.Set("Authorization", "Bearer ")
+	if got := tokenFromRequest(req); got != "" {
+		t.Fatalf("expected empty token, got %q", got)
 	}
 }
