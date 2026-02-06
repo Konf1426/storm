@@ -7,6 +7,8 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - secret.yaml
+  - rbac.yaml
+  - networkpolicy.yaml
   - nats.yaml
   - postgres.yaml
   - redis.yaml

@@ -13,6 +13,14 @@ spec:
       labels:
         app: messages
     spec:
+      serviceAccountName: storm-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: messages
           image: storm-messages:latest
@@ -20,6 +28,18 @@ spec:
           ports:
             - containerPort: 8081
             - containerPort: 6061
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
           env:
             - name: NATS_URL
               valueFrom:

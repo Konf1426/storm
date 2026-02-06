@@ -5,7 +5,13 @@ metadata:
   namespace: storm
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
+  tls:
+    - hosts:
+        - storm.local
+      secretName: storm-tls
   rules:
     - host: storm.local
       http:

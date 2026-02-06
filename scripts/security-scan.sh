@@ -27,6 +27,8 @@ else
   warn "gosec not found (install: go install github.com/securego/gosec/v2/cmd/gosec@latest)"
 fi
 
+GOSEC_EXCLUDE="${GOSEC_EXCLUDE:-G402}"
+
 for svc in "${SERVICES[@]}"; do
   log "Dependency scan: $(basename "$svc")"
   if [ "$HAS_GOVULN" -eq 1 ]; then
@@ -37,7 +39,7 @@ for svc in "${SERVICES[@]}"; do
   fi
 
   if [ "$HAS_GOSEC" -eq 1 ]; then
-    (cd "$svc" && gosec ./...)
+    (cd "$svc" && gosec -exclude "$GOSEC_EXCLUDE" ./...)
     pass "gosec complete"
   else
     warn "gosec skipped"

@@ -13,4 +13,5 @@ kubectl apply -k infra/k8s
 - Secrets are placeholders; replace before apply.
 - Use `secret.template.yaml` and `configmap.template.yaml` for prod values.
 - Ingress is provided for gateway, grafana, prometheus (host: storm.local).
+- TLS secret expected: `storm-tls` (create with real cert).
 - For production, use managed Postgres/Redis and proper TLS/Ingress.
