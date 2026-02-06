@@ -31,4 +31,4 @@ jobs:
         run: bash scripts/coverage.sh
 
       - name: Security scan
-        run: GOSEC_EXCLUDE=G402 bash scripts/security-scan.sh
+        run: bash scripts/security-scan.sh

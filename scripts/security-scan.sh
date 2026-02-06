@@ -27,7 +27,7 @@ else
   warn "gosec not found (install: go install github.com/securego/gosec/v2/cmd/gosec@latest)"
 fi
 
-GOSEC_EXCLUDE="${GOSEC_EXCLUDE:-G402}"
+GOSEC_EXCLUDE="${GOSEC_EXCLUDE:-}"
 GOSEC_STRICT="${GOSEC_STRICT:-1}"
 GOSEC_SKIP="${GOSEC_SKIP:-0}"
 GOVULN_SKIP="${GOVULN_SKIP:-0}"
@@ -46,7 +46,11 @@ for svc in "${SERVICES[@]}"; do
   if [ "$GOSEC_SKIP" -eq 1 ]; then
     warn "gosec skipped by GOSEC_SKIP"
   elif [ "$HAS_GOSEC" -eq 1 ]; then
-    if (cd "$svc" && gosec -exclude "$GOSEC_EXCLUDE" ./...); then
+    GOSEC_ARGS=()
+    if [ -n "$GOSEC_EXCLUDE" ]; then
+      GOSEC_ARGS+=("-exclude" "$GOSEC_EXCLUDE")
+    fi
+    if (cd "$svc" && gosec "${GOSEC_ARGS[@]}" ./...); then
       pass "gosec complete"
     else
       warn "gosec found issues"

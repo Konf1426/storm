@@ -38,7 +38,7 @@ func runMain(deps runtimeDeps) error {
 	}
 
 	natsURL := env("NATS_URL", "nats://localhost:4222")
-	// #nosec G402 -- NATS uses plaintext in local/dev; TLS is configured at infra layer when needed.
+	//nolint:gosec // TLS is terminated at ingress in prod; dev uses plaintext.
 	nc, err := deps.NatsConnect(
 		natsURL,
 		nats.Name("storm-gateway"),
@@ -90,13 +90,13 @@ func runMain(deps runtimeDeps) error {
 	if pprofAddr := env("PPROF_ADDR", ""); pprofAddr != "" {
 		go func() {
 			log.Printf("pprof listening on %s", pprofAddr)
-			// #nosec G402 -- pprof is bound to internal address in dev; TLS handled upstream in prod.
+			//nolint:gosec // dev-only pprof, TLS upstream.
 			if err := http.ListenAndServe(pprofAddr, nil); err != nil {
 				log.Printf("pprof error: %v", err)
 			}
 		}()
 	}
-	// #nosec G402 -- plaintext HTTP for dev/local; TLS termination expected at ingress/ALB.
+	//nolint:gosec // TLS at ingress.
 	return deps.ListenAndServe(addr, NewRouter(NewNatsAdapter(nc), store, presence, auth))
 }
 

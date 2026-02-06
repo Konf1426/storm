@@ -31,6 +31,7 @@ func runMessages(ctx context.Context, nc NatsConn, subject, addr string) error {
 
 	errCh := make(chan error, 1)
 	go func() {
+		//nolint:gosec // TLS handled at ingress; service is internal.
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 			return

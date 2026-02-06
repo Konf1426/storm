@@ -341,7 +341,7 @@ type redisPresence struct {
 }
 
 func NewRedisPresence(ctx context.Context, addr, password string, db int) (Presence, error) {
-	// #nosec G402 -- Redis TLS is configured at infra level; local dev uses plaintext.
+	//nolint:gosec // Redis TLS is configured at infra level; local dev uses plaintext.
 	client := redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: password,
