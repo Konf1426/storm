@@ -19,9 +19,28 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 	"github.com/nats-io/nats.go"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/time/rate"
 )
+
+var (
+	metricActiveWebSockets = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "storm_active_websockets",
+		Help: "The total number of active WebSocket connections",
+	})
+	metricAuthRateLimited = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "storm_auth_rate_limited_total",
+		Help: "The total number of auth requests rejected due to rate limiting",
+	})
+	metricNatsPublishDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "storm_nats_publish_duration_seconds",
+		Help:    "Histogram of NATS publish latencies",
+		Buckets: prometheus.DefBuckets,
+	})
+)
+
 
 const (
 	defaultSubject = "storm.events"
@@ -83,6 +102,7 @@ func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 			ip = req.RemoteAddr
 		}
 		if !rl.get(ip).Allow() {
+			metricAuthRateLimited.Inc()
 			http.Error(w, "too many requests", http.StatusTooManyRequests)
 			return
 		}
@@ -188,7 +208,10 @@ type natsAdapter struct {
 }
 
 func (n *natsAdapter) Publish(subject string, data []byte) error {
-	return n.conn.Publish(subject, data)
+	start := time.Now()
+	err := n.conn.Publish(subject, data)
+	metricNatsPublishDuration.Observe(time.Since(start).Seconds())
+	return err
 }
 
 func (n *natsAdapter) ChanSubscribe(subject string, ch chan *nats.Msg) (Subscription, error) {
@@ -219,6 +242,8 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+
+	r.Handle("/metrics", promhttp.Handler())
 
 	r.Get("/ping-nats", func(w http.ResponseWriter, _ *http.Request) {
 		if !nc.IsConnected() {
@@ -604,8 +629,6 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 		})
 	})
 
-	r.Handle("/metrics", promhttp.Handler())
-
 	return r
 }
 
@@ -623,9 +646,15 @@ func wsHandler(nc NatsClient, store Store, presence Presence) http.HandlerFunc {
 
 		conn, err := upgrader.Upgrade(w, req, nil)
 		if err != nil {
+			log.Printf("ws dial: %v", err)
 			return
 		}
-		defer conn.Close()
+
+		metricActiveWebSockets.Inc()
+		defer func() {
+			metricActiveWebSockets.Dec()
+			_ = conn.Close()
+		}()
 
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
