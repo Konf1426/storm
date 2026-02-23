@@ -132,7 +132,9 @@
                   ]"
                 >
                   <div class="flex items-center justify-between">
-                    <span class="text-xs font-mono text-muted-foreground">{{ event.time }}</span>
+                    <span class="text-xs font-mono text-muted-foreground">
+                      {{ event.time }} • {{ event.date }}
+                    </span>
                     <Badge variant="outline">{{ event.bytes }} bytes</Badge>
                   </div>
                   <pre class="mt-2 whitespace-pre-wrap text-sm text-foreground">{{ event.text }}</pre>
@@ -238,6 +240,7 @@ const pushEvent = (text) => {
   const entry = {
     id: nextId++,
     time: now.toLocaleTimeString(),
+    date: now.toLocaleDateString(),
     text: parsed.text,
     own: parsed.author && parsed.author === currentUser.value,
     bytes: new TextEncoder().encode(text).length,
@@ -380,6 +383,7 @@ const loadHistory = async () => {
         return {
           id: `history-${item.id}`,
           time: new Date(item.created_at).toLocaleTimeString(),
+          date: new Date(item.created_at).toLocaleDateString(),
           text: parsed.text,
           own: parsed.author && parsed.author === currentUser.value,
           bytes: (item.payload || "").length,
