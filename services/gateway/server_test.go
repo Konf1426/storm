@@ -20,7 +20,14 @@ import (
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/time/rate"
 )
+
+func init() {
+	// Increase rate limit burst for tests to avoid intentional 429 failures in non-rate-limiting tests.
+	// Rate limiting logic itself is tested using separate instances in auth_test.go.
+	authRateLimiter = newRateLimiter(rate.Inf, 1000)
+}
 
 type fakeSub struct{}
 
