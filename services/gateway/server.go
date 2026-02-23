@@ -6,11 +6,13 @@ import (
 	"errors"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -18,6 +20,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -27,6 +30,68 @@ const (
 
 var subjectRe = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 var errPayloadTooLarge = errors.New("payload too large")
+
+// rateLimiter provides per-IP token bucket rate limiting.
+type rateLimiter struct {
+	mu       sync.Mutex
+	limiters map[string]*rateLimiterEntry
+	r        rate.Limit
+	b        int
+}
+
+type rateLimiterEntry struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
+func newRateLimiter(r rate.Limit, b int) *rateLimiter {
+	rl := &rateLimiter{
+		limiters: make(map[string]*rateLimiterEntry),
+		r:        r,
+		b:        b,
+	}
+	go func() {
+		for range time.Tick(5 * time.Minute) {
+			rl.mu.Lock()
+			for ip, e := range rl.limiters {
+				if time.Since(e.lastSeen) > 10*time.Minute {
+					delete(rl.limiters, ip)
+				}
+			}
+			rl.mu.Unlock()
+		}
+	}()
+	return rl
+}
+
+func (rl *rateLimiter) get(ip string) *rate.Limiter {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	e, ok := rl.limiters[ip]
+	if !ok {
+		e = &rateLimiterEntry{limiter: rate.NewLimiter(rl.r, rl.b)}
+		rl.limiters[ip] = e
+	}
+	e.lastSeen = time.Now()
+	return e.limiter
+}
+
+func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ip, _, err := net.SplitHostPort(req.RemoteAddr)
+		if err != nil {
+			ip = req.RemoteAddr
+		}
+		if !rl.get(ip).Allow() {
+			http.Error(w, "too many requests", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, req)
+	})
+}
+
+// authRateLimiter: 5 req/min per IP, burst of 3.
+var authRateLimiter = newRateLimiter(rate.Every(12*time.Second), 3)
 
 // NatsClient is the minimal interface needed by the HTTP handlers.
 type NatsClient interface {
@@ -165,6 +230,7 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 	})
 
 	r.Route("/auth", func(ar chi.Router) {
+		ar.Use(authRateLimiter.middleware)
 		ar.Post("/register", func(w http.ResponseWriter, req *http.Request) {
 			if store == nil {
 				http.Error(w, "store not configured", http.StatusServiceUnavailable)
