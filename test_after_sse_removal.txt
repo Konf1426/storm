@@ -1,0 +1,354 @@
+﻿go: downloading github.com/jackc/pgx/v5 v5.7.4
+go: downloading github.com/nats-io/nats.go v1.48.0
+go: downloading github.com/go-chi/chi/v5 v5.2.4
+go: downloading github.com/redis/go-redis/v9 v9.12.1
+go: downloading github.com/prometheus/client_golang v1.23.2
+go: downloading github.com/golang-jwt/jwt/v5 v5.3.0
+go: downloading github.com/gorilla/websocket v1.5.3
+go: downloading golang.org/x/time v0.13.0
+go: downloading golang.org/x/crypto v0.41.0
+go: downloading github.com/alicebob/miniredis/v2 v2.31.0
+go: downloading github.com/nats-io/nats-server/v2 v2.11.9
+go: downloading github.com/pashagolub/pgxmock/v3 v3.4.0
+go: downloading github.com/nats-io/nkeys v0.4.11
+go: downloading github.com/klauspost/compress v1.18.0
+go: downloading github.com/nats-io/nuid v1.0.1
+go: downloading github.com/jackc/pgpassfile v1.0.0
+go: downloading github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
+go: downloading golang.org/x/text v0.28.0
+go: downloading github.com/prometheus/common v0.66.1
+go: downloading github.com/prometheus/client_model v0.6.2
+go: downloading github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a
+go: downloading github.com/yuin/gopher-lua v1.1.0
+go: downloading github.com/beorn7/perks v1.0.1
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading github.com/prometheus/procfs v0.16.1
+go: downloading google.golang.org/protobuf v1.36.8
+go: downloading github.com/jackc/puddle/v2 v2.2.2
+go: downloading github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
+go: downloading github.com/antithesishq/antithesis-sdk-go v0.4.3-default-no-op
+go: downloading github.com/minio/highwayhash v1.0.3
+go: downloading github.com/nats-io/jwt/v2 v2.7.4
+go: downloading golang.org/x/sys v0.36.0
+go: downloading github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+go: downloading go.yaml.in/yaml/v2 v2.4.2
+go: downloading golang.org/x/sync v0.16.0
+=== RUN   TestRateLimiterAllowsWithinBurst
+--- PASS: TestRateLimiterAllowsWithinBurst (0.00s)
+=== RUN   TestRateLimiterRejects429
+--- PASS: TestRateLimiterRejects429 (0.00s)
+=== RUN   TestRateLimiterDifferentIPsAreIndependent
+--- PASS: TestRateLimiterDifferentIPsAreIndependent (0.00s)
+=== RUN   TestRateLimiterRemoteAddrWithoutPort
+--- PASS: TestRateLimiterRemoteAddrWithoutPort (0.00s)
+=== RUN   TestAuthMiddlewareRejectsExpiredToken
+--- PASS: TestAuthMiddlewareRejectsExpiredToken (0.00s)
+=== RUN   TestAuthMiddlewareRejectsBadAlgo
+--- PASS: TestAuthMiddlewareRejectsBadAlgo (0.00s)
+=== RUN   TestRegisterDuplicateUser
+2026/02/23 10:58:46 create user failed: user exists
+--- PASS: TestRegisterDuplicateUser (0.07s)
+=== RUN   TestRegisterNoStore
+--- PASS: TestRegisterNoStore (0.00s)
+=== RUN   TestLoginNoStore
+--- PASS: TestLoginNoStore (0.00s)
+=== RUN   TestAuthMeReturnsUser
+--- PASS: TestAuthMeReturnsUser (0.00s)
+=== RUN   TestConnectPostgresFailure
+2026/02/23 10:58:46 postgres connect attempt 1/1 failed: failed to connect to `user=bad database=bad`: 127.0.0.1:1 (127.0.0.1): dial error: dial tcp 127.0.0.1:1: connect: connection refused
+--- PASS: TestConnectPostgresFailure (0.01s)
+=== RUN   TestConnectRedisFailure
+2026/02/23 10:58:46 redis connect attempt 1/1 failed: dial tcp 127.0.0.1:1: connect: connection refused
+--- PASS: TestConnectRedisFailure (0.07s)
+=== RUN   TestConnectRedisSuccess
+--- PASS: TestConnectRedisSuccess (0.03s)
+=== RUN   TestRunMainUsesDeps
+2026/02/23 10:58:46 gateway listening on :0 (nats=nats://127.0.0.1:43651)
+--- PASS: TestRunMainUsesDeps (0.03s)
+=== RUN   TestSubjectFromRequestInvalid
+--- PASS: TestSubjectFromRequestInvalid (0.00s)
+=== RUN   TestSubjectOrChannelDefault
+--- PASS: TestSubjectOrChannelDefault (0.00s)
+=== RUN   TestEnvIntInvalidFallback
+--- PASS: TestEnvIntInvalidFallback (0.00s)
+=== RUN   TestEnvBoolInvalidFallback
+--- PASS: TestEnvBoolInvalidFallback (0.00s)
+=== RUN   TestCorsDefaultOrigin
+--- PASS: TestCorsDefaultOrigin (0.00s)
+=== RUN   TestReadBodyWithMaxBytesReader
+--- PASS: TestReadBodyWithMaxBytesReader (0.00s)
+=== RUN   TestEnvIntFromQueryInvalid
+--- PASS: TestEnvIntFromQueryInvalid (0.00s)
+=== RUN   TestAuthMeWhenAuthDisabled
+--- PASS: TestAuthMeWhenAuthDisabled (0.00s)
+=== RUN   TestAuthRefreshInvalidSignature
+--- PASS: TestAuthRefreshInvalidSignature (0.00s)
+=== RUN   TestAuthRefreshExpiredToken
+--- PASS: TestAuthRefreshExpiredToken (0.00s)
+=== RUN   TestSignToken
+--- PASS: TestSignToken (0.00s)
+=== RUN   TestWriteJSONAdditional
+--- PASS: TestWriteJSONAdditional (0.00s)
+=== RUN   TestTokenFromCookieMissing
+--- PASS: TestTokenFromCookieMissing (0.00s)
+=== RUN   TestTokenFromRequestUsesBearerFirst
+--- PASS: TestTokenFromRequestUsesBearerFirst (0.00s)
+=== RUN   TestTokenFromRequestCookieFallback
+--- PASS: TestTokenFromRequestCookieFallback (0.00s)
+=== RUN   TestTokenFromRequestQueryFallback
+--- PASS: TestTokenFromRequestQueryFallback (0.00s)
+=== RUN   TestSubjectFromRequestDefaultAdditional
+--- PASS: TestSubjectFromRequestDefaultAdditional (0.00s)
+=== RUN   TestReadBodyNoWriterAdditional
+--- PASS: TestReadBodyNoWriterAdditional (0.00s)
+=== RUN   TestReadBodyErrorAdditional
+--- PASS: TestReadBodyErrorAdditional (0.00s)
+=== RUN   TestUserFromContextInvalidTypeAdditional
+--- PASS: TestUserFromContextInvalidTypeAdditional (0.00s)
+=== RUN   TestTokenFromRequestBearerEmptyAdditional
+--- PASS: TestTokenFromRequestBearerEmptyAdditional (0.00s)
+=== RUN   TestIssueSessionStoreErrorAdditional
+2026/02/23 10:58:46 save refresh token failed: save refresh failed
+--- PASS: TestIssueSessionStoreErrorAdditional (0.00s)
+=== RUN   TestReadBodyTooLargeAdditional
+--- PASS: TestReadBodyTooLargeAdditional (0.01s)
+=== RUN   TestHealthz
+--- PASS: TestHealthz (0.00s)
+=== RUN   TestPingNatsConnected
+--- PASS: TestPingNatsConnected (0.00s)
+=== RUN   TestPingNatsDisconnected
+--- PASS: TestPingNatsDisconnected (0.00s)
+=== RUN   TestPublishDefaultSubject
+--- PASS: TestPublishDefaultSubject (0.00s)
+=== RUN   TestPublishEmptyBodyDefaults
+--- PASS: TestPublishEmptyBodyDefaults (0.00s)
+=== RUN   TestPublishInvalidSubject
+--- PASS: TestPublishInvalidSubject (0.00s)
+=== RUN   TestPublishTooLarge
+--- PASS: TestPublishTooLarge (0.01s)
+=== RUN   TestAuthMiddlewareRejectsMissingToken
+--- PASS: TestAuthMiddlewareRejectsMissingToken (0.00s)
+=== RUN   TestAuthMiddlewareAcceptsCookieToken
+--- PASS: TestAuthMiddlewareAcceptsCookieToken (0.00s)
+=== RUN   TestReadMessagePayloadJSON
+--- PASS: TestReadMessagePayloadJSON (0.00s)
+=== RUN   TestReadMessagePayloadEmpty
+--- PASS: TestReadMessagePayloadEmpty (0.00s)
+=== RUN   TestTokenFromRequestQuery
+--- PASS: TestTokenFromRequestQuery (0.00s)
+=== RUN   TestSubjectOrChannel
+--- PASS: TestSubjectOrChannel (0.00s)
+=== RUN   TestAuthRefreshFlow
+--- PASS: TestAuthRefreshFlow (0.14s)
+=== RUN   TestAuthLogout
+--- PASS: TestAuthLogout (0.00s)
+=== RUN   TestCookieDomainAndSecureFlags
+--- PASS: TestCookieDomainAndSecureFlags (0.00s)
+=== RUN   TestEnvIntParsing
+--- PASS: TestEnvIntParsing (0.00s)
+=== RUN   TestEnvBoolParsing
+--- PASS: TestEnvBoolParsing (0.00s)
+=== RUN   TestEnvIntFromQuery
+--- PASS: TestEnvIntFromQuery (0.00s)
+=== RUN   TestReadBodyTooLarge
+--- PASS: TestReadBodyTooLarge (0.00s)
+=== RUN   TestSetCookieExpires
+--- PASS: TestSetCookieExpires (0.00s)
+=== RUN   TestTokenFromRequestBearer
+--- PASS: TestTokenFromRequestBearer (0.00s)
+=== RUN   TestSubjectFromRequestDefault
+--- PASS: TestSubjectFromRequestDefault (0.00s)
+=== RUN   TestParseID
+--- PASS: TestParseID (0.00s)
+=== RUN   TestTokenFromCookie
+--- PASS: TestTokenFromCookie (0.00s)
+=== RUN   TestSubjectOrChannelInvalid
+--- PASS: TestSubjectOrChannelInvalid (0.00s)
+=== RUN   TestWriteJSON
+--- PASS: TestWriteJSON (0.00s)
+=== RUN   TestRefreshTokenInvalid
+--- PASS: TestRefreshTokenInvalid (0.00s)
+=== RUN   TestCorsPreflight
+--- PASS: TestCorsPreflight (0.00s)
+=== RUN   TestRegisterInvalidPayload
+--- PASS: TestRegisterInvalidPayload (0.00s)
+=== RUN   TestRegisterMissingFields
+--- PASS: TestRegisterMissingFields (0.00s)
+=== RUN   TestLoginInvalidCredentials
+--- PASS: TestLoginInvalidCredentials (0.00s)
+=== RUN   TestLoginInvalidPayload
+--- PASS: TestLoginInvalidPayload (0.00s)
+=== RUN   TestChannelsInvalidPayload
+--- PASS: TestChannelsInvalidPayload (0.00s)
+=== RUN   TestChannelsListSuccess
+--- PASS: TestChannelsListSuccess (0.00s)
+=== RUN   TestChannelsListUnauthorized
+--- PASS: TestChannelsListUnauthorized (0.00s)
+=== RUN   TestChannelsEnsureUserError
+--- PASS: TestChannelsEnsureUserError (0.00s)
+=== RUN   TestChannelsStoreNotConfigured
+--- PASS: TestChannelsStoreNotConfigured (0.00s)
+=== RUN   TestChannelsMessagesInvalidID
+--- PASS: TestChannelsMessagesInvalidID (0.00s)
+=== RUN   TestWebSocketChannelFlow
+--- PASS: TestWebSocketChannelFlow (0.07s)
+=== RUN   TestWebSocketSubscribeError
+--- PASS: TestWebSocketSubscribeError (0.00s)
+=== RUN   TestUsersForbiddenUpdate
+--- PASS: TestUsersForbiddenUpdate (0.00s)
+=== RUN   TestUsersGetNotFound
+--- PASS: TestUsersGetNotFound (0.00s)
+=== RUN   TestUsersCreateInvalidPayload
+--- PASS: TestUsersCreateInvalidPayload (0.00s)
+=== RUN   TestClearSessionCookies
+--- PASS: TestClearSessionCookies (0.00s)
+=== RUN   TestPresenceKey
+--- PASS: TestPresenceKey (0.00s)
+=== RUN   TestAuthFlowAndUsersCRUD
+--- PASS: TestAuthFlowAndUsersCRUD (0.14s)
+=== RUN   TestChannelsAndMessagesFlow
+--- PASS: TestChannelsAndMessagesFlow (0.14s)
+=== RUN   TestClamp
+--- PASS: TestClamp (0.00s)
+=== RUN   TestReadMessagePayloadInvalidJSON
+--- PASS: TestReadMessagePayloadInvalidJSON (0.00s)
+=== RUN   TestReadMessagePayloadEmptyJSON
+--- PASS: TestReadMessagePayloadEmptyJSON (0.00s)
+=== RUN   TestAuthMiddlewareDisabled
+--- PASS: TestAuthMiddlewareDisabled (0.00s)
+=== RUN   TestWSHandlerInvalidSubject
+--- PASS: TestWSHandlerInvalidSubject (0.00s)
+=== RUN   TestEnvFallbackAndOverride
+--- PASS: TestEnvFallbackAndOverride (0.00s)
+=== RUN   TestNatsAdapterPublishSubscribe
+--- PASS: TestNatsAdapterPublishSubscribe (0.03s)
+=== RUN   TestPostgresStoreEnsureSchema
+--- PASS: TestPostgresStoreEnsureSchema (0.00s)
+=== RUN   TestPostgresStoreUserFlow
+--- PASS: TestPostgresStoreUserFlow (0.27s)
+=== RUN   TestPostgresStoreRefreshTokens
+--- PASS: TestPostgresStoreRefreshTokens (0.00s)
+=== RUN   TestPostgresStoreChannelsAndMessages
+--- PASS: TestPostgresStoreChannelsAndMessages (0.00s)
+=== RUN   TestIsPgNotFound
+--- PASS: TestIsPgNotFound (0.00s)
+=== RUN   TestPostgresStoreEnsureSchemaError
+--- PASS: TestPostgresStoreEnsureSchemaError (0.00s)
+=== RUN   TestPostgresStoreVerifyPasswordInvalid
+--- PASS: TestPostgresStoreVerifyPasswordInvalid (0.00s)
+=== RUN   TestPostgresStoreUpdateUserNotFound
+--- PASS: TestPostgresStoreUpdateUserNotFound (0.00s)
+=== RUN   TestPostgresStoreGetRefreshTokenNotFound
+--- PASS: TestPostgresStoreGetRefreshTokenNotFound (0.00s)
+=== RUN   TestPostgresStoreExecError
+--- PASS: TestPostgresStoreExecError (0.00s)
+=== RUN   TestPostgresStoreListMessagesError
+--- PASS: TestPostgresStoreListMessagesError (0.00s)
+=== RUN   TestPostgresStoreSaveMessageError
+--- PASS: TestPostgresStoreSaveMessageError (0.00s)
+=== RUN   TestPostgresStoreGetUserNotFound
+--- PASS: TestPostgresStoreGetUserNotFound (0.00s)
+=== RUN   TestPostgresStoreListUsersError
+--- PASS: TestPostgresStoreListUsersError (0.00s)
+=== RUN   TestPostgresStoreCreateChannelError
+--- PASS: TestPostgresStoreCreateChannelError (0.00s)
+=== RUN   TestPostgresStoreSaveChannelMessageError
+--- PASS: TestPostgresStoreSaveChannelMessageError (0.00s)
+=== RUN   TestPostgresStoreCreateUserError
+--- PASS: TestPostgresStoreCreateUserError (0.07s)
+=== RUN   TestPostgresStoreSaveRefreshTokenError
+--- PASS: TestPostgresStoreSaveRefreshTokenError (0.00s)
+=== RUN   TestPostgresStoreRevokeRefreshTokenError
+--- PASS: TestPostgresStoreRevokeRefreshTokenError (0.00s)
+=== RUN   TestPostgresStoreVerifyUserPasswordQueryError
+--- PASS: TestPostgresStoreVerifyUserPasswordQueryError (0.00s)
+=== RUN   TestPostgresStoreListChannelsError
+--- PASS: TestPostgresStoreListChannelsError (0.00s)
+=== RUN   TestPostgresStoreEnsureUserError
+--- PASS: TestPostgresStoreEnsureUserError (0.00s)
+=== RUN   TestPostgresStoreDeleteUserError
+--- PASS: TestPostgresStoreDeleteUserError (0.00s)
+=== RUN   TestPostgresStoreListUsersRowsError
+--- PASS: TestPostgresStoreListUsersRowsError (0.00s)
+=== RUN   TestPostgresStoreListChannelsRowsError
+--- PASS: TestPostgresStoreListChannelsRowsError (0.00s)
+=== RUN   TestPostgresStoreListMessagesRowsError
+--- PASS: TestPostgresStoreListMessagesRowsError (0.00s)
+=== RUN   TestPostgresStoreSaveChannelMessageScanError
+--- PASS: TestPostgresStoreSaveChannelMessageScanError (0.00s)
+=== RUN   TestPostgresStoreListMessagesScanError
+--- PASS: TestPostgresStoreListMessagesScanError (0.00s)
+=== RUN   TestPostgresStoreSaveMessageExecErrorTag
+--- PASS: TestPostgresStoreSaveMessageExecErrorTag (0.00s)
+=== RUN   TestPostgresStoreClose
+--- PASS: TestPostgresStoreClose (0.00s)
+=== RUN   TestRedisPresenceIncrDecrClose
+--- PASS: TestRedisPresenceIncrDecrClose (0.00s)
+=== RUN   TestPgconnCommandTag
+--- PASS: TestPgconnCommandTag (0.00s)
+PASS
+coverage: 80.1% of statements
+ok  	storm/gateway	1.145s	coverage: 80.1% of statements
+storm/gateway/main.go:13:	main				0.0%
+storm/gateway/main.go:27:	runMain				58.3%
+storm/gateway/main.go:129:	connectPostgres			88.9%
+storm/gateway/main.go:143:	connectRedis			100.0%
+storm/gateway/server.go:47:	newRateLimiter			44.4%
+storm/gateway/server.go:67:	get				100.0%
+storm/gateway/server.go:79:	middleware			100.0%
+storm/gateway/server.go:182:	NewNatsAdapter			100.0%
+storm/gateway/server.go:190:	Publish				100.0%
+storm/gateway/server.go:194:	ChanSubscribe			75.0%
+storm/gateway/server.go:202:	IsConnected			100.0%
+storm/gateway/server.go:210:	Unsubscribe			100.0%
+storm/gateway/server.go:214:	NewRouter			70.0%
+storm/gateway/server.go:612:	wsHandler			69.0%
+storm/gateway/server.go:727:	authMiddleware			94.7%
+storm/gateway/server.go:760:	userFromContext			100.0%
+storm/gateway/server.go:769:	tokenFromRequest		100.0%
+storm/gateway/server.go:780:	tokenFromCookie			100.0%
+storm/gateway/server.go:788:	issueSession			100.0%
+storm/gateway/server.go:802:	signToken			85.7%
+storm/gateway/server.go:817:	setCookie			100.0%
+storm/gateway/server.go:831:	clearSessionCookies		100.0%
+storm/gateway/server.go:837:	subjectFromRequest		100.0%
+storm/gateway/server.go:848:	subjectOrChannel		100.0%
+storm/gateway/server.go:865:	channelSubject			100.0%
+storm/gateway/server.go:869:	parseID				100.0%
+storm/gateway/server.go:877:	env				100.0%
+storm/gateway/server.go:884:	envInt				100.0%
+storm/gateway/server.go:893:	envIntFromQuery			100.0%
+storm/gateway/server.go:902:	envBool				100.0%
+storm/gateway/server.go:912:	clamp				100.0%
+storm/gateway/server.go:924:	readBody			100.0%
+storm/gateway/server.go:943:	readMessagePayload		78.6%
+storm/gateway/server.go:967:	writeJSON			100.0%
+storm/gateway/server.go:973:	presenceKey			100.0%
+storm/gateway/server.go:977:	corsMiddleware			100.0%
+storm/gateway/storage.go:27:	NewPostgresStore		75.0%
+storm/gateway/storage.go:41:	newPostgresStoreWithPool	100.0%
+storm/gateway/storage.go:45:	ensureSchema			100.0%
+storm/gateway/storage.go:96:	EnsureUser			100.0%
+storm/gateway/storage.go:104:	CreateUser			87.5%
+storm/gateway/storage.go:122:	GetUser				100.0%
+storm/gateway/storage.go:132:	ListUsers			100.0%
+storm/gateway/storage.go:153:	UpdateUser			78.6%
+storm/gateway/storage.go:177:	DeleteUser			100.0%
+storm/gateway/storage.go:185:	VerifyUserPassword		100.0%
+storm/gateway/storage.go:202:	SaveRefreshToken		100.0%
+storm/gateway/storage.go:213:	GetRefreshToken			100.0%
+storm/gateway/storage.go:223:	RevokeRefreshToken		100.0%
+storm/gateway/storage.go:231:	CreateChannel			100.0%
+storm/gateway/storage.go:244:	ListChannels			100.0%
+storm/gateway/storage.go:265:	EnsureMember			100.0%
+storm/gateway/storage.go:277:	SaveChannelMessage		100.0%
+storm/gateway/storage.go:297:	ListMessages			93.3%
+storm/gateway/storage.go:326:	SaveMessage			100.0%
+storm/gateway/storage.go:334:	Close				100.0%
+storm/gateway/storage.go:344:	NewRedisPresence		100.0%
+storm/gateway/storage.go:358:	key				100.0%
+storm/gateway/storage.go:362:	Incr				100.0%
+storm/gateway/storage.go:366:	Decr				100.0%
+storm/gateway/storage.go:370:	Close				100.0%
+storm/gateway/storage.go:374:	isPgNotFound			100.0%
+total:				(statements)			80.1%

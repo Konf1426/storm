@@ -60,19 +60,19 @@ JWT est contrôlé par `AuthConfig.Enabled`. Il faut s'assurer que `AUTH_ENABLED
 ### 3. Intégrer l'auth dans le frontend
 
 Le frontend Vue doit :
-- [ ] Appeler `POST /auth/register` et `POST /auth/login`
-- [ ] Stocker le token (cookies HttpOnly gérés automatiquement par le navigateur)
-- [ ] Inclure le header `Authorization: Bearer <token>` ou laisser le cookie passer automatiquement sur les requêtes
-- [ ] Passer `?token=<access_token>` dans l'URL de connexion WebSocket (contrainte du protocole WS qui ne supporte pas les headers custom à l'upgrade)
-- [ ] Implémenter le refresh automatique : détecter une 401 → appeler `/auth/refresh` → rejouer la requête
-- [ ] Gérer le logout (appel à `/auth/logout`)
+- [x] Appeler `POST /auth/register` et `POST /auth/login`
+- [x] Stocker le token (cookies HttpOnly gérés automatiquement par le navigateur)
+- [x] Inclure le header `Authorization: Bearer <token>` ou laisser le cookie passer automatiquement sur les requêtes
+- [x] Passer `?token=<access_token>` dans l'URL de connexion WebSocket (contrainte du protocole WS qui ne supporte pas les headers custom à l'upgrade)
+- [x] Implémenter le refresh automatique : détecter une 401 → appeler `/auth/refresh` → rejouer la requête
+- [x] Gérer le logout (appel à `/auth/logout`)
 
 ### 4. Tests à écrire / compléter
 
-- [ ] Test unitaire `authMiddleware` : token valide, token expiré, token absent, mauvais algo
-- [ ] Test intégration `/auth/login` → `/auth/refresh` → `/auth/logout`
-- [ ] Test que les routes protégées retournent 401 sans token
-- [ ] Viser > 80% coverage (exigence consignes)
+- [x] Test unitaire `authMiddleware` : token valide, token expiré, token absent, mauvais algo
+- [x] Test intégration `/auth/login` → `/auth/refresh` → `/auth/logout`
+- [x] Test que les routes protégées retournent 401 sans token
+- [x] Viser > 80% coverage (exigence consignes)
 
 ### 5. Sécurité à vérifier
 
@@ -84,7 +84,7 @@ Le frontend Vue doit :
 | Signature HS256 | ✅ Implémenté |
 | Vérification algo (`!ok` check) | ✅ Implémenté |
 | Révocation refresh token | ✅ Implémenté |
-| Rate limiting sur `/auth/login` | ❌ À ajouter (protection brute force) |
+| Rate limiting sur `/auth/login` | ✅ Implémenté |
 
 ---
 
@@ -93,16 +93,16 @@ Le frontend Vue doit :
 1. [ ] Ajouter les Kubernetes Secrets pour `JWT_SECRET` / `JWT_REFRESH_SECRET`
 2. [ ] Activer `AUTH_ENABLED=true` dans tous les environnements
 3. [ ] Activer `COOKIE_SECURE=true` en prod (HTTPS)
-4. [ ] Intégrer l'auth dans le frontend Vue
-5. [ ] Ajouter du rate limiting sur les routes `/auth/*`
-6. [ ] Compléter les tests unitaires et d'intégration
+4. [x] Intégrer l'auth dans le frontend Vue
+5. [x] Ajouter du rate limiting sur les routes `/auth/*`
+6. [x] Compléter les tests unitaires et d'intégration
 
 ---
 
 ## Critères de done
 
 - [ ] `AUTH_ENABLED=true` en production (K8s secrets configurés)
-- [ ] Les WebSockets utilisent le JWT pour s'authentifier
-- [ ] Le frontend implémente le flux login / refresh / logout
-- [ ] Rate limiting sur `/auth/login` et `/auth/register`
-- [ ] Tests auth avec > 80% de coverage
+- [x] Les WebSockets utilisent le JWT pour s'authentifier
+- [x] Le frontend implémente le flux login / refresh / logout
+- [x] Rate limiting sur `/auth/login` et `/auth/register`
+- [x] Tests auth avec > 80% de coverage

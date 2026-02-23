@@ -382,14 +382,7 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 			_, _ = w.Write([]byte("published"))
 		})
 
-		pr.Get("/events", func(w http.ResponseWriter, req *http.Request) {
-			subject, err := subjectFromRequest(req)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			streamSSE(w, req, nc, subject)
-		})
+
 
 		pr.Get("/ws", wsHandler(nc, store, presence))
 
@@ -926,64 +919,7 @@ func clamp(val, min, max int) int {
 	return val
 }
 
-func writeSSE(w io.Writer, data string) error {
-	lines := strings.Split(data, "\n")
-	for _, line := range lines {
-		if _, err := io.WriteString(w, "data: "+line+"\n"); err != nil {
-			return err
-		}
-	}
-	_, err := io.WriteString(w, "\n")
-	return err
-}
 
-func streamSSE(w http.ResponseWriter, req *http.Request, nc NatsClient, subject string) {
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-
-	_, _ = w.Write([]byte(": stream ready\n\n"))
-	flusher.Flush()
-
-	ch := make(chan *nats.Msg, 128)
-	sub, err := nc.ChanSubscribe(subject, ch)
-	if err != nil {
-		http.Error(w, "subscribe failed: "+err.Error(), http.StatusBadGateway)
-		return
-	}
-	defer func() {
-		_ = sub.Unsubscribe()
-		close(ch)
-	}()
-
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-req.Context().Done():
-			return
-		case <-ticker.C:
-			_, _ = w.Write([]byte(": heartbeat\n\n"))
-			flusher.Flush()
-		case msg := <-ch:
-			if msg == nil {
-				continue
-			}
-			if err := writeSSE(w, string(msg.Data)); err != nil {
-				return
-			}
-			flusher.Flush()
-		}
-	}
-}
 
 func readBody(w http.ResponseWriter, req *http.Request) ([]byte, error) {
 	if w != nil {

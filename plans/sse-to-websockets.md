@@ -78,17 +78,17 @@ Format JSON attendu dans les deux sens :
 
 ## Ordre d'exécution recommandé
 
-1. [ ] Migrer le frontend (ne casse pas le backend)
-2. [ ] Supprimer `streamSSE` + la route `/events` côté gateway
-3. [ ] Nettoyer les tests du gateway
-4. [ ] Vérifier l'ingress K8s pour le support WebSocket
-5. [ ] Test de charge avec k6 ou locust (target : 100K connexions WS simultanées)
+1. [x] Migrer le frontend (ne casse pas le backend)
+2. [x] Supprimer `streamSSE` + la route `/events` côté gateway
+3. [x] Nettoyer les tests du gateway
+4. [x] Vérifier l'ingress K8s pour le support WebSocket
+5. [x] Test de charge avec k6 ou locust (target : 100K connexions WS simultanées)
 
 ---
 
 ## Critères de done
 
-- [ ] L'endpoint `/events` (SSE) n'existe plus
-- [ ] Le frontend se connecte et reçoit des messages via WS
-- [ ] Les tests passent avec > 80% de coverage
-- [ ] Un test de charge valide la tenue à 100K connexions simultanées
+- [x] L'endpoint `/events` (SSE) n'existe plus
+- [x] Le frontend se connecte et reçoit des messages via WS
+- [x] Les tests passent avec > 80% de coverage
+- [x] Un test de charge valide la tenue à 100K connexions simultanées
