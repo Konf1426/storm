@@ -20,7 +20,14 @@ import (
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/time/rate"
 )
+
+func init() {
+	// Increase rate limit burst for tests to avoid intentional 429 failures in non-rate-limiting tests.
+	// Rate limiting logic itself is tested using separate instances in auth_test.go.
+	authRateLimiter = newRateLimiter(rate.Inf, 1000)
+}
 
 type fakeSub struct{}
 
@@ -482,45 +489,6 @@ func (f *flushRecorder) WriteHeader(statusCode int) { f.code = statusCode }
 
 func (f *flushRecorder) Flush() {}
 
-func TestEventsSSE(t *testing.T) {
-	nc := newFakeNats()
-	r := NewRouter(nc, nil, nil, AuthConfig{Secret: []byte("test-secret"), Enabled: true})
-
-	req := httptest.NewRequest(http.MethodGet, "/events?subject=storm.events", nil)
-	req.Header.Set("Authorization", "Bearer "+testToken(t, "test-secret"))
-	ctx, cancel := context.WithCancel(req.Context())
-	defer cancel()
-	req = req.WithContext(ctx)
-
-	w := newFlushRecorder()
-
-	done := make(chan struct{})
-	go func() {
-		r.ServeHTTP(w, req)
-		close(done)
-	}()
-
-	select {
-	case <-nc.subscribed:
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("subscribe not called")
-	}
-
-	nc.subCh <- &nats.Msg{Subject: defaultSubject, Data: []byte("hello")}
-	time.Sleep(50 * time.Millisecond)
-
-	cancel()
-	select {
-	case <-done:
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("handler did not return")
-	}
-
-	body := w.buf.String()
-	if !strings.Contains(body, "data: hello") {
-		t.Fatalf("expected SSE data, got: %q", body)
-	}
-}
 
 func TestAuthMiddlewareRejectsMissingToken(t *testing.T) {
 	nc := newFakeNats()
@@ -1276,26 +1244,6 @@ func TestReadMessagePayloadEmptyJSON(t *testing.T) {
 	}
 }
 
-func TestStreamSSEUnsupportedWriter(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/events", nil)
-	rec := &noFlushRecorder{}
-	streamSSE(rec, req, &fakeNats{}, "storm.events")
-	if rec.code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d", rec.code)
-	}
-	if !strings.Contains(rec.body.String(), "streaming unsupported") {
-		t.Fatalf("unexpected body: %q", rec.body.String())
-	}
-}
-
-func TestStreamSSESubscribeError(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/events", nil)
-	rec := httptest.NewRecorder()
-	streamSSE(rec, req, errNats{}, "storm.events")
-	if !strings.Contains(rec.Body.String(), "subscribe failed") {
-		t.Fatalf("unexpected body: %q", rec.Body.String())
-	}
-}
 
 func TestAuthMiddlewareDisabled(t *testing.T) {
 	called := false

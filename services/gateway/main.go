@@ -73,6 +73,8 @@ func runMain(deps runtimeDeps) error {
 		_ = store.Close()
 	}()
 
+	StartWorkerPool(ctx, store, envInt("WORKER_POOL_SIZE", 50))
+
 	redisAddr := env("REDIS_ADDR", "redis:6379")
 	redisPassword := env("REDIS_PASSWORD", "")
 	redisDB := envInt("REDIS_DB", 0)

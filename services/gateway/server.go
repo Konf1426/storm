@@ -6,19 +6,91 @@ import (
 	"errors"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 	"github.com/nats-io/nats.go"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/time/rate"
 )
+
+var (
+	metricActiveWebSockets = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "storm_active_websockets",
+		Help: "The total number of active WebSocket connections",
+	})
+	metricAuthRateLimited = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "storm_auth_rate_limited_total",
+		Help: "The total number of auth requests rejected due to rate limiting",
+	})
+	metricNatsPublishDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "storm_nats_publish_duration_seconds",
+		Help:    "Histogram of NATS publish latencies",
+		Buckets: prometheus.DefBuckets,
+	})
+	metricSaveQueueLen = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "storm_save_queue_length",
+		Help: "The current number of messages waiting to be saved to database",
+	})
+)
+
+type asyncTaskType int
+
+const (
+	taskSaveMessage asyncTaskType = iota
+	taskSaveRefreshToken
+)
+
+type asyncTask struct {
+	taskType  asyncTaskType
+	channelID int64
+	userID    string
+	payload   []byte
+	token     string
+	expiresAt time.Time
+}
+
+var (
+	asyncTaskQueue = make(chan asyncTask, 50000)
+)
+
+func StartWorkerPool(ctx context.Context, store Store, numWorkers int) {
+	log.Printf("starting message worker pool with %d workers", numWorkers)
+	for i := 0; i < numWorkers; i++ {
+		go func(id int) {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case task := <-asyncTaskQueue:
+					metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
+					switch task.taskType {
+					case taskSaveMessage:
+						if _, err := store.SaveChannelMessage(context.Background(), task.channelID, task.userID, task.payload); err != nil {
+							log.Printf("worker %d: store message failed: %v", id, err)
+						}
+					case taskSaveRefreshToken:
+						if err := store.SaveRefreshToken(context.Background(), task.userID, task.token, task.expiresAt); err != nil {
+							log.Printf("worker %d: store refresh token failed: %v", id, err)
+						}
+					}
+				}
+			}
+		}(i)
+	}
+}
+
 
 const (
 	defaultSubject = "storm.events"
@@ -27,6 +99,74 @@ const (
 
 var subjectRe = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 var errPayloadTooLarge = errors.New("payload too large")
+
+// rateLimiter provides per-IP token bucket rate limiting.
+type rateLimiter struct {
+	mu       sync.Mutex
+	limiters map[string]*rateLimiterEntry
+	r        rate.Limit
+	b        int
+}
+
+type rateLimiterEntry struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
+func newRateLimiter(r rate.Limit, b int) *rateLimiter {
+	rl := &rateLimiter{
+		limiters: make(map[string]*rateLimiterEntry),
+		r:        r,
+		b:        b,
+	}
+	go func() {
+		for range time.Tick(5 * time.Minute) {
+			rl.mu.Lock()
+			for ip, e := range rl.limiters {
+				if time.Since(e.lastSeen) > 10*time.Minute {
+					delete(rl.limiters, ip)
+				}
+			}
+			rl.mu.Unlock()
+		}
+	}()
+	return rl
+}
+
+func (rl *rateLimiter) get(ip string) *rate.Limiter {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	e, ok := rl.limiters[ip]
+	if !ok {
+		e = &rateLimiterEntry{limiter: rate.NewLimiter(rl.r, rl.b)}
+		rl.limiters[ip] = e
+	}
+	e.lastSeen = time.Now()
+	return e.limiter
+}
+
+func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if !envBool("AUTH_RATE_LIMIT_ENABLED", true) {
+			next.ServeHTTP(w, req)
+			return
+		}
+
+		ip, _, err := net.SplitHostPort(req.RemoteAddr)
+		if err != nil {
+			ip = req.RemoteAddr
+		}
+		if !rl.get(ip).Allow() {
+			metricAuthRateLimited.Inc()
+			http.Error(w, "too many requests", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, req)
+	})
+}
+
+// authRateLimiter: 5 req/min per IP, burst of 3.
+var authRateLimiter = newRateLimiter(rate.Every(12*time.Second), 3)
 
 // NatsClient is the minimal interface needed by the HTTP handlers.
 type NatsClient interface {
@@ -123,7 +263,10 @@ type natsAdapter struct {
 }
 
 func (n *natsAdapter) Publish(subject string, data []byte) error {
-	return n.conn.Publish(subject, data)
+	start := time.Now()
+	err := n.conn.Publish(subject, data)
+	metricNatsPublishDuration.Observe(time.Since(start).Seconds())
+	return err
 }
 
 func (n *natsAdapter) ChanSubscribe(subject string, ch chan *nats.Msg) (Subscription, error) {
@@ -155,6 +298,8 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 		_, _ = w.Write([]byte("ok"))
 	})
 
+	r.Handle("/metrics", promhttp.Handler())
+
 	r.Get("/ping-nats", func(w http.ResponseWriter, _ *http.Request) {
 		if !nc.IsConnected() {
 			http.Error(w, "nats not connected", http.StatusServiceUnavailable)
@@ -165,6 +310,7 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 	})
 
 	r.Route("/auth", func(ar chi.Router) {
+		ar.Use(authRateLimiter.middleware)
 		ar.Post("/register", func(w http.ResponseWriter, req *http.Request) {
 			if store == nil {
 				http.Error(w, "store not configured", http.StatusServiceUnavailable)
@@ -316,14 +462,7 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 			_, _ = w.Write([]byte("published"))
 		})
 
-		pr.Get("/events", func(w http.ResponseWriter, req *http.Request) {
-			subject, err := subjectFromRequest(req)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			streamSSE(w, req, nc, subject)
-		})
+
 
 		pr.Get("/ws", wsHandler(nc, store, presence))
 
@@ -545,8 +684,6 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 		})
 	})
 
-	r.Handle("/metrics", promhttp.Handler())
-
 	return r
 }
 
@@ -564,9 +701,15 @@ func wsHandler(nc NatsClient, store Store, presence Presence) http.HandlerFunc {
 
 		conn, err := upgrader.Upgrade(w, req, nil)
 		if err != nil {
+			log.Printf("ws dial: %v", err)
 			return
 		}
-		defer conn.Close()
+
+		metricActiveWebSockets.Inc()
+		defer func() {
+			metricActiveWebSockets.Dec()
+			_ = conn.Close()
+		}()
 
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -655,8 +798,14 @@ func wsHandler(nc NatsClient, store Store, presence Presence) http.HandlerFunc {
 				log.Printf("ws publish failed: %v", err)
 			}
 			if store != nil && channelID != 0 && userID != "" {
-				if _, err := store.SaveChannelMessage(ctx, channelID, userID, message); err != nil {
-					log.Printf("store message failed: %v", err)
+				// We copy the message because the original slice might be reused by the websocket reader
+				msgCopy := make([]byte, len(message))
+				copy(msgCopy, message)
+				select {
+				case asyncTaskQueue <- asyncTask{taskType: taskSaveMessage, channelID: channelID, userID: userID, payload: msgCopy}:
+					metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
+				default:
+					log.Printf("async task queue full, dropping message from %s", userID)
 				}
 			}
 		}
@@ -731,8 +880,16 @@ func issueSession(w http.ResponseWriter, cfg AuthConfig, store Store, userID str
 	refreshToken, refreshExp := signToken(cfg.RefreshSecret, userID, cfg.RefreshTTL)
 
 	if store != nil {
-		if err := store.SaveRefreshToken(context.Background(), userID, refreshToken, refreshExp); err != nil {
-			log.Printf("save refresh token failed: %v", err)
+		select {
+		case asyncTaskQueue <- asyncTask{
+			taskType:  taskSaveRefreshToken,
+			userID:    userID,
+			token:     refreshToken,
+			expiresAt: refreshExp,
+		}:
+			metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
+		default:
+			log.Printf("async task queue full, dropping refresh token for %s", userID)
 		}
 	}
 
@@ -860,64 +1017,7 @@ func clamp(val, min, max int) int {
 	return val
 }
 
-func writeSSE(w io.Writer, data string) error {
-	lines := strings.Split(data, "\n")
-	for _, line := range lines {
-		if _, err := io.WriteString(w, "data: "+line+"\n"); err != nil {
-			return err
-		}
-	}
-	_, err := io.WriteString(w, "\n")
-	return err
-}
 
-func streamSSE(w http.ResponseWriter, req *http.Request, nc NatsClient, subject string) {
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-
-	_, _ = w.Write([]byte(": stream ready\n\n"))
-	flusher.Flush()
-
-	ch := make(chan *nats.Msg, 128)
-	sub, err := nc.ChanSubscribe(subject, ch)
-	if err != nil {
-		http.Error(w, "subscribe failed: "+err.Error(), http.StatusBadGateway)
-		return
-	}
-	defer func() {
-		_ = sub.Unsubscribe()
-		close(ch)
-	}()
-
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-req.Context().Done():
-			return
-		case <-ticker.C:
-			_, _ = w.Write([]byte(": heartbeat\n\n"))
-			flusher.Flush()
-		case msg := <-ch:
-			if msg == nil {
-				continue
-			}
-			if err := writeSSE(w, string(msg.Data)); err != nil {
-				return
-			}
-			flusher.Flush()
-		}
-	}
-}
 
 func readBody(w http.ResponseWriter, req *http.Request) ([]byte, error) {
 	if w != nil {
