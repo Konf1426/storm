@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
+	"os"
+	"strconv"
 )
 
 type pgxPool interface {
@@ -105,7 +107,7 @@ func (s *postgresStore) CreateUser(ctx context.Context, userID, password, displa
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), getBcryptCost())
 	if err != nil {
 		return User{}, err
 	}
@@ -161,7 +163,7 @@ func (s *postgresStore) UpdateUser(ctx context.Context, userID, displayName, pas
 		}
 	}
 	if password != "" {
-		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), getBcryptCost())
 		if err != nil {
 			return User{}, err
 		}
@@ -373,4 +375,16 @@ func (r *redisPresence) Close() error {
 
 func isPgNotFound(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows)
+}
+
+func getBcryptCost() int {
+	costStr := os.Getenv("BCRYPT_COST")
+	if costStr == "" {
+		return bcrypt.DefaultCost
+	}
+	cost, err := strconv.Atoi(costStr)
+	if err != nil {
+		return bcrypt.DefaultCost
+	}
+	return cost
 }

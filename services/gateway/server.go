@@ -39,7 +39,57 @@ var (
 		Help:    "Histogram of NATS publish latencies",
 		Buckets: prometheus.DefBuckets,
 	})
+	metricSaveQueueLen = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "storm_save_queue_length",
+		Help: "The current number of messages waiting to be saved to database",
+	})
 )
+
+type asyncTaskType int
+
+const (
+	taskSaveMessage asyncTaskType = iota
+	taskSaveRefreshToken
+)
+
+type asyncTask struct {
+	taskType  asyncTaskType
+	channelID int64
+	userID    string
+	payload   []byte
+	token     string
+	expiresAt time.Time
+}
+
+var (
+	asyncTaskQueue = make(chan asyncTask, 50000)
+)
+
+func StartWorkerPool(ctx context.Context, store Store, numWorkers int) {
+	log.Printf("starting message worker pool with %d workers", numWorkers)
+	for i := 0; i < numWorkers; i++ {
+		go func(id int) {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case task := <-asyncTaskQueue:
+					metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
+					switch task.taskType {
+					case taskSaveMessage:
+						if _, err := store.SaveChannelMessage(context.Background(), task.channelID, task.userID, task.payload); err != nil {
+							log.Printf("worker %d: store message failed: %v", id, err)
+						}
+					case taskSaveRefreshToken:
+						if err := store.SaveRefreshToken(context.Background(), task.userID, task.token, task.expiresAt); err != nil {
+							log.Printf("worker %d: store refresh token failed: %v", id, err)
+						}
+					}
+				}
+			}
+		}(i)
+	}
+}
 
 
 const (
@@ -97,6 +147,11 @@ func (rl *rateLimiter) get(ip string) *rate.Limiter {
 
 func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if !envBool("AUTH_RATE_LIMIT_ENABLED", true) {
+			next.ServeHTTP(w, req)
+			return
+		}
+
 		ip, _, err := net.SplitHostPort(req.RemoteAddr)
 		if err != nil {
 			ip = req.RemoteAddr
@@ -743,8 +798,14 @@ func wsHandler(nc NatsClient, store Store, presence Presence) http.HandlerFunc {
 				log.Printf("ws publish failed: %v", err)
 			}
 			if store != nil && channelID != 0 && userID != "" {
-				if _, err := store.SaveChannelMessage(ctx, channelID, userID, message); err != nil {
-					log.Printf("store message failed: %v", err)
+				// We copy the message because the original slice might be reused by the websocket reader
+				msgCopy := make([]byte, len(message))
+				copy(msgCopy, message)
+				select {
+				case asyncTaskQueue <- asyncTask{taskType: taskSaveMessage, channelID: channelID, userID: userID, payload: msgCopy}:
+					metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
+				default:
+					log.Printf("async task queue full, dropping message from %s", userID)
 				}
 			}
 		}
@@ -819,8 +880,16 @@ func issueSession(w http.ResponseWriter, cfg AuthConfig, store Store, userID str
 	refreshToken, refreshExp := signToken(cfg.RefreshSecret, userID, cfg.RefreshTTL)
 
 	if store != nil {
-		if err := store.SaveRefreshToken(context.Background(), userID, refreshToken, refreshExp); err != nil {
-			log.Printf("save refresh token failed: %v", err)
+		select {
+		case asyncTaskQueue <- asyncTask{
+			taskType:  taskSaveRefreshToken,
+			userID:    userID,
+			token:     refreshToken,
+			expiresAt: refreshExp,
+		}:
+			metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
+		default:
+			log.Printf("async task queue full, dropping refresh token for %s", userID)
 		}
 	}
 

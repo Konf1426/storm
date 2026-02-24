@@ -34,8 +34,11 @@ services:
       JWT_SECRET: dev-secret
       JWT_REFRESH_SECRET: dev-secret
       CORS_ORIGIN: http://localhost:5173
-      POSTGRES_DSN: postgres://storm:storm@postgres:5432/storm?sslmode=disable
+      POSTGRES_DSN: postgres://storm:storm@postgres:5432/storm?sslmode=disable&pool_max_conns=100
       REDIS_ADDR: redis:6379
+      AUTH_RATE_LIMIT_ENABLED: "false"
+      BCRYPT_COST: "4"
+      WORKER_POOL_SIZE: "20"
     ports:
       - "8080:8080"
       - "6060:6060"

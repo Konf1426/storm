@@ -30,3 +30,7 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# k6 Load Testing
+# k6 Load Testing
+# scripts/k6/*.md
