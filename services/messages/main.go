@@ -1,76 +1,81 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/nats-io/nats.go"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
-	// NATS
-	natsURL := env("NATS_URL", "nats://localhost:4222")
-	subject := env("SUBJECT", "storm.events")
-
-	nc, err := nats.Connect(
-		natsURL,
-		nats.Name("storm-messages"),
-		nats.Timeout(3*time.Second),
-		nats.PingInterval(20*time.Second),
-		nats.MaxPingsOutstanding(3),
-	)
-	if err != nil {
-		log.Fatalf("nats connect failed: %v", err)
+	if err := runEntry(runtimeDeps{}); err != nil {
+		log.Fatalf("messages failed: %v", err)
 	}
-	defer nc.Close()
-
-	// Subscribe
-	_, err = nc.Subscribe(subject, func(m *nats.Msg) {
-		log.Printf("received subject=%s bytes=%d payload=%s", m.Subject, len(m.Data), string(m.Data))
-	})
-	if err != nil {
-		log.Fatalf("subscribe failed: %v", err)
-	}
-	nc.Flush()
-	if err := nc.LastError(); err != nil {
-		log.Fatalf("nats flush error: %v", err)
-	}
-
-	// HTTP
-	r := chi.NewRouter()
-	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
-	r.Handle("/metrics", promhttp.Handler())
-
-	addr := env("MESSAGES_ADDR", ":8081")
-	srv := &http.Server{Addr: addr, Handler: r}
-
-	go func() {
-		log.Printf("messages listening on %s (nats=%s subject=%s)", addr, natsURL, subject)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("http server failed: %v", err)
-		}
-	}()
-
-	// Graceful shutdown
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
-	log.Println("shutting down...")
-	_ = srv.Close()
 }
 
-func env(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
+type runtimeDeps struct {
+	NotifyContext func(context.Context, ...os.Signal) (context.Context, context.CancelFunc)
+	Connect       func(string) (NatsConn, error)
+	Logf          func(string, ...any)
+}
+
+func runEntry(deps runtimeDeps) error {
+	if deps.NotifyContext == nil {
+		deps.NotifyContext = signal.NotifyContext
 	}
-	return fallback
+	if deps.Connect == nil {
+		deps.Connect = func(url string) (NatsConn, error) {
+			// #nosec G402 -- TLS is terminated at ingress in prod; dev uses plaintext.
+			return nats.Connect(
+				url,
+				nats.Name("storm-messages"),
+				nats.Timeout(3*time.Second),
+				nats.PingInterval(20*time.Second),
+				nats.MaxPingsOutstanding(3),
+			)
+		}
+	}
+	if deps.Logf == nil {
+		deps.Logf = log.Printf
+	}
+
+	addr := env("MESSAGES_ADDR", ":8081")
+	natsURL := env("NATS_URL", "nats://localhost:4222")
+	subject := env("SUBJECT", "storm.events")
+	pprofAddr := env("PPROF_ADDR", "")
+
+	ctx, stop := deps.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	deps.Logf("messages listening on %s (nats=%s subject=%s)", addr, natsURL, subject)
+	if pprofAddr != "" {
+		go func() {
+			deps.Logf("pprof listening on %s", pprofAddr)
+			mux := http.NewServeMux()
+			mux.HandleFunc("/debug/pprof/", pprof.Index)
+			mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+			mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+			mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+			mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+			pprofSrv := &http.Server{
+				Addr:              pprofAddr,
+				Handler:           mux,
+				ReadHeaderTimeout: 5 * time.Second,
+				ReadTimeout:       15 * time.Second,
+				WriteTimeout:      15 * time.Second,
+				IdleTimeout:       60 * time.Second,
+			}
+			// #nosec G402 -- dev-only pprof, TLS upstream.
+			if err := pprofSrv.ListenAndServe(); err != nil {
+				deps.Logf("pprof error: %v", err)
+			}
+		}()
+	}
+	return runMain(ctx, deps.Connect, natsURL, subject, addr)
 }

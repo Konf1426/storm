@@ -1,0 +1,40 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --background: 30 40% 98%;
+  --foreground: 225 30% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 225 25% 14%;
+  --primary: 202 78% 45%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 220 15% 92%;
+  --muted-foreground: 220 12% 40%;
+  --accent: 28 92% 58%;
+  --accent-foreground: 0 0% 10%;
+  --border: 220 16% 86%;
+  --ring: 202 78% 45%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  background: radial-gradient(1200px 600px at 10% 10%, rgba(255, 219, 190, 0.6), transparent 60%),
+    radial-gradient(900px 500px at 90% 20%, rgba(140, 214, 255, 0.45), transparent 55%),
+    #f7f6f3;
+  color: hsl(var(--foreground));
+}
+
+#app {
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(42, 157, 219, 0.25);
+}

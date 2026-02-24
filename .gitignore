@@ -1,5 +1,8 @@
 # Go
 **/gateway
+!services/gateway
+!services/gateway/**
+services/gateway/gateway
 **/*.exe
 **/*.out
 **/*.test
@@ -11,8 +14,14 @@
 .env
 .env.*
 
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+
 # Logs
 *.log
+out/
 
 # IDE
 .vscode/
