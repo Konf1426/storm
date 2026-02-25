@@ -807,7 +807,7 @@ func wsHandler(nc NatsClient, store Store, presence Presence) http.HandlerFunc {
 				case asyncTaskQueue <- asyncTask{taskType: taskSaveMessage, channelID: channelID, userID: userID, payload: msgCopy}:
 					metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
 				default:
-					log.Printf("async task queue full, dropping message from %s", sanitize(userID))
+					log.Printf("async task queue full, dropping message from %s", sanitize(userID)) // #nosec G706
 				}
 			}
 		}
@@ -896,7 +896,7 @@ func issueSession(w http.ResponseWriter, cfg AuthConfig, store Store, userID str
 			}:
 				metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
 			default:
-				log.Printf("async task queue full, dropping refresh token for %s", sanitize(userID))
+				log.Printf("async task queue full, dropping refresh token for %s", sanitize(userID)) // #nosec G706
 			}
 		}
 	}
