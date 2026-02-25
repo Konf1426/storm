@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -585,4 +586,38 @@ func TestRedisPresenceIncrDecrClose(t *testing.T) {
 
 func TestPgconnCommandTag(t *testing.T) {
 	var _ pgconn.CommandTag
+}
+
+func TestGetBcryptCost(t *testing.T) {
+	os.Setenv("BCRYPT_COST", "")
+	if cost := getBcryptCost(); cost != bcrypt.DefaultCost {
+		t.Fatalf("expected DefaultCost, got %d", cost)
+	}
+
+	os.Setenv("BCRYPT_COST", "invalid")
+	if cost := getBcryptCost(); cost != bcrypt.DefaultCost {
+		t.Fatalf("expected DefaultCost for invalid, got %d", cost)
+	}
+
+	os.Setenv("BCRYPT_COST", "4")
+	if cost := getBcryptCost(); cost != 4 {
+		t.Fatalf("expected 4, got %d", cost)
+	}
+	os.Setenv("BCRYPT_COST", "")
+}
+
+func TestMaybeSimulateDelay(t *testing.T) {
+	os.Setenv("SIMULATE_DB_DELAY", "")
+	maybeSimulateDelay() // Should return immediately
+
+	os.Setenv("SIMULATE_DB_DELAY", "invalid")
+	maybeSimulateDelay() // Should return immediately
+
+	os.Setenv("SIMULATE_DB_DELAY", "1ms")
+	start := time.Now()
+	maybeSimulateDelay()
+	if time.Since(start) < 1*time.Millisecond {
+		t.Fatalf("expected delay to occur")
+	}
+	os.Setenv("SIMULATE_DB_DELAY", "")
 }

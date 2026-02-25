@@ -25,6 +25,8 @@ import (
 	"golang.org/x/time/rate"
 )
 
+var testMode = false
+
 var (
 	metricActiveWebSockets = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "storm_active_websockets",
@@ -880,16 +882,22 @@ func issueSession(w http.ResponseWriter, cfg AuthConfig, store Store, userID str
 	refreshToken, refreshExp := signToken(cfg.RefreshSecret, userID, cfg.RefreshTTL)
 
 	if store != nil {
-		select {
-		case asyncTaskQueue <- asyncTask{
-			taskType:  taskSaveRefreshToken,
-			userID:    userID,
-			token:     refreshToken,
-			expiresAt: refreshExp,
-		}:
-			metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
-		default:
-			log.Printf("async task queue full, dropping refresh token for %s", userID)
+		if testMode {
+			if err := store.SaveRefreshToken(context.Background(), userID, refreshToken, refreshExp); err != nil {
+				log.Printf("test sync save refresh token failed: %v", err)
+			}
+		} else {
+			select {
+			case asyncTaskQueue <- asyncTask{
+				taskType:  taskSaveRefreshToken,
+				userID:    userID,
+				token:     refreshToken,
+				expiresAt: refreshExp,
+			}:
+				metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
+			default:
+				log.Printf("async task queue full, dropping refresh token for %s", userID)
+			}
 		}
 	}
 
