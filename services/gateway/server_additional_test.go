@@ -459,6 +459,14 @@ func TestAuthRateLimitMiddleware(t *testing.T) {
 	}
 }
 
+func TestSanitize(t *testing.T) {
+	input := "user\nname\r"
+	expected := "username"
+	if got := sanitize(input); got != expected {
+		t.Fatalf("expected %q, got %q", expected, got)
+	}
+}
+
 type mockNats struct {
 	connected bool
 }
