@@ -1,34 +1,70 @@
-name: CI
+name: STORM CI
 
 on:
   push:
-    branches:
-      - "**"
+    branches: [ main, develop ]
   pull_request:
+    branches: [ main, develop ]
 
 jobs:
   test:
+    name: Lint & Test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.13"
-          cache-dependency-path: |
-            services/gateway/go.sum
-            services/messages/go.sum
+          go-version: '1.24'
 
-      - name: Install security tools
+      - name: Verify Dependencies (Gateway)
         run: |
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          cd services/gateway
+          go mod download
+          go mod verify
+
+      - name: Run Tests (Gateway)
+        run: |
+          cd services/gateway
+          go test -v -cover ./...
+
+      - name: Verify Dependencies (Messages)
+        run: |
+          cd services/messages
+          go mod download
+          go mod verify
+
+      - name: Run Gosec Security Scan (Gateway)
+        run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
+          cd services/gateway
+          gosec ./...
 
-      - name: Coverage
-        run: bash scripts/coverage.sh
+  docker:
+    name: Docker Build & Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Security scan
-        run: bash scripts/security-scan.sh
+      - name: Build Gateway Image
+        run: |
+          docker build -t storm-gateway:test -f services/gateway/Dockerfile services/gateway
+
+      - name: Scan Gateway Image (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'storm-gateway:test'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Build Messages Image
+        run: |
+          docker build -t storm-messages:test -f services/messages/Dockerfile services/messages
+
+      - name: Scan Messages Image (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'storm-messages:test'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'

@@ -333,6 +333,10 @@ const sendMessage = async () => {
       body,
       credentials: "include",
     })
+    if (res.status === 401) {
+      await logout()
+      throw new Error("Session expired")
+    }
     if (!res.ok) {
       throw new Error(await res.text())
     }
@@ -352,6 +356,10 @@ const loadChannels = async () => {
     const res = await fetch(`${gatewayUrl.value}/channels`, {
       credentials: "include",
     })
+    if (res.status === 401) {
+      await logout()
+      return
+    }
     if (!res.ok) {
       throw new Error(await res.text())
     }
@@ -371,6 +379,10 @@ const loadHistory = async () => {
       `${gatewayUrl.value}/channels/${selectedChannelId.value}/messages?limit=50`,
       { credentials: "include" }
     )
+    if (res.status === 401) {
+      await logout()
+      return
+    }
     if (!res.ok) {
       throw new Error(await res.text())
     }
@@ -409,6 +421,10 @@ const createChannel = async () => {
       credentials: "include",
       body: JSON.stringify({ name: newChannelName.value.trim() }),
     })
+    if (res.status === 401) {
+      await logout()
+      return
+    }
     if (!res.ok) {
       throw new Error(await res.text())
     }
@@ -489,26 +505,33 @@ const logout = async () => {
 }
 
 const refreshSession = async () => {
-  const res = await fetch(`${gatewayUrl.value}/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
-  })
-  if (res.ok) {
-    return true
+  try {
+    const res = await fetch(`${gatewayUrl.value}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    })
+    return res.ok
+  } catch (err) {
+    console.error("Refresh failed", err)
+    return false
   }
-  return false
 }
 
 const scheduleRefresh = () => {
   if (refreshTimer) {
-    clearInterval(refreshTimer)
+    clearTimeout(refreshTimer)
   }
-  refreshTimer = setInterval(async () => {
+  // Refresh every 12 minutes (Access Token persists 15 min)
+  refreshTimer = setTimeout(async () => {
+    if (!authenticated.value) return
     const ok = await refreshSession()
-    if (!ok) {
+    if (ok) {
+      scheduleRefresh()
+    } else {
       await logout()
+      authStatus.value = "Session expired, please login again"
     }
-  }, 10 * 60 * 1000)
+  }, 12 * 60 * 1000)
 }
 
 const checkSession = async () => {

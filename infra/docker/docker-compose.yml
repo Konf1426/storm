@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   nats:
     image: nats:2
@@ -14,8 +16,6 @@ services:
       POSTGRES_DB: storm
     ports:
       - "6433:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
 
   redis:
     image: redis:7
@@ -25,20 +25,19 @@ services:
   gateway:
     build:
       context: ../../services/gateway
-    cap_add:
-      - NET_ADMIN
+      dockerfile: Dockerfile
     environment:
-      NATS_URL: nats://nats:4222
-      GATEWAY_ADDR: :8080
-      PPROF_ADDR: :6060
-      JWT_SECRET: dev-secret
-      JWT_REFRESH_SECRET: dev-secret
-      CORS_ORIGIN: http://localhost:5173
-      POSTGRES_DSN: postgres://storm:storm@postgres:5432/storm?sslmode=disable&pool_max_conns=100
-      REDIS_ADDR: redis:6379
-      AUTH_RATE_LIMIT_ENABLED: "false"
-      BCRYPT_COST: "4"
-      WORKER_POOL_SIZE: "20"
+      - NATS_URL=nats://nats:4222
+      - GATEWAY_ADDR=:8080
+      - PPROF_ADDR=:6060
+      - JWT_SECRET=dev-secret
+      - JWT_REFRESH_SECRET=dev-secret
+      - CORS_ORIGIN=http://localhost:5173
+      - POSTGRES_DSN=postgres://storm:storm@postgres:5432/storm?sslmode=disable&pool_max_conns=100
+      - REDIS_ADDR=redis:6379
+      - AUTH_RATE_LIMIT_ENABLED=false
+      - BCRYPT_COST=4
+      - WORKER_POOL_SIZE=20
     ports:
       - "8080:8080"
       - "6060:6060"
@@ -50,36 +49,27 @@ services:
   messages:
     build:
       context: ../../services/messages
-    cap_add:
-      - NET_ADMIN
+      dockerfile: Dockerfile
     environment:
-      NATS_URL: nats://nats:4222
-      SUBJECT: storm.events
-      MESSAGES_ADDR: :8081
-      PPROF_ADDR: :6061
-    ports:
-      - "8081:8081"
-      - "6061:6061"
+      - NATS_URL=nats://nats:4222
     depends_on:
       - nats
 
   prometheus:
     image: prom/prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
   grafana:
     image: grafana/grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
     ports:
       - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
-      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-
-volumes:
-  pgdata:
-  grafana_data:
+    depends_on:
+      - prometheus
