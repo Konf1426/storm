@@ -202,7 +202,8 @@ func (s *postgresStore) VerifyUserPassword(ctx context.Context, userID, password
 }
 
 func (s *postgresStore) SaveRefreshToken(ctx context.Context, userID, token string, expiresAt time.Time) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	maybeSimulateDelay()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	_, err := s.pool.Exec(ctx, `
@@ -277,7 +278,8 @@ ON CONFLICT DO NOTHING
 }
 
 func (s *postgresStore) SaveChannelMessage(ctx context.Context, channelID int64, userID string, payload []byte) (Message, error) {
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	maybeSimulateDelay()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	subject := channelSubject(channelID)
@@ -387,4 +389,12 @@ func getBcryptCost() int {
 		return bcrypt.DefaultCost
 	}
 	return cost
+}
+
+func maybeSimulateDelay() {
+	if v := os.Getenv("SIMULATE_DB_DELAY"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			time.Sleep(d)
+		}
+	}
 }

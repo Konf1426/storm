@@ -19,6 +19,15 @@
           <Badge variant="outline">{{ recentRate }} / 10s</Badge>
         </div>
       </div>
+      <div v-if="globalError" class="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-sm font-medium text-red-800">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-circle"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+            {{ globalError }}
+          </div>
+          <Button variant="ghost" size="sm" class="h-8 px-2 text-red-800 hover:bg-red-100" @click="globalError = ''">Dismiss</Button>
+        </div>
+      </div>
     </header>
 
     <main class="px-6 pb-16 lg:px-12">
@@ -206,6 +215,7 @@ const subject = ref("storm.events")
 const messageText = ref("")
 const publishStatus = ref("")
 const authStatus = ref("")
+const globalError = ref("")
 const connected = ref(false)
 const lastEventAt = ref("")
 const messages = ref([])
@@ -310,8 +320,39 @@ const disconnectStream = () => {
   connected.value = false
 }
 
+const handleApiError = async (res) => {
+  const status = res.status;
+  let message = "";
+  try {
+    message = await res.text();
+  } catch (e) {
+    message = "Unknown error";
+  }
+
+  if (status === 429) {
+    globalError.value = "Slow down! You are being rate limited (429). Please wait a moment.";
+  } else if (status === 503) {
+    globalError.value = "Service temporarily unavailable (503). The backend might be overloaded.";
+  } else if (status === 401) {
+    globalError.value = "Session expired or invalid (401). Please login again.";
+    await logout();
+  } else if (status >= 500) {
+    globalError.value = `Server error (${status}): ${message || 'Check backend logs'}`;
+  } else {
+    globalError.value = `Error (${status}): ${message}`;
+  }
+  
+  // Clear error after 10 seconds automatically
+  setTimeout(() => {
+    if (globalError.value.includes(status.toString())) {
+      globalError.value = "";
+    }
+  }, 10000);
+}
+
 const sendMessage = async () => {
   publishStatus.value = "sending..."
+  globalError.value = ""
   try {
     let url = `${gatewayUrl.value}/publish?subject=${encodeURIComponent(subject.value)}`
     const payload = {
@@ -333,13 +374,15 @@ const sendMessage = async () => {
       body,
       credentials: "include",
     })
+    
     if (!res.ok) {
-      throw new Error(await res.text())
+      await handleApiError(res);
+      throw new Error("Failed to send");
     }
     messageText.value = ""
     publishStatus.value = "sent"
   } catch (err) {
-    publishStatus.value = `failed: ${err.message}`
+    publishStatus.value = `failed`
   } finally {
     setTimeout(() => {
       publishStatus.value = ""
@@ -353,11 +396,12 @@ const loadChannels = async () => {
       credentials: "include",
     })
     if (!res.ok) {
-      throw new Error(await res.text())
+      await handleApiError(res);
+      return
     }
     channels.value = await res.json()
   } catch (err) {
-    publishStatus.value = `load failed: ${err.message}`
+    console.error("Failed to load channels", err)
   }
 }
 
@@ -372,7 +416,8 @@ const loadHistory = async () => {
       { credentials: "include" }
     )
     if (!res.ok) {
-      throw new Error(await res.text())
+      await handleApiError(res);
+      return
     }
     const history = await res.json()
     messages.value = history
@@ -391,7 +436,7 @@ const loadHistory = async () => {
       })
     scrollToBottom()
   } catch (err) {
-    publishStatus.value = `history failed: ${err.message}`
+    console.error("Failed to load history", err)
   }
 }
 
@@ -410,7 +455,8 @@ const createChannel = async () => {
       body: JSON.stringify({ name: newChannelName.value.trim() }),
     })
     if (!res.ok) {
-      throw new Error(await res.text())
+      await handleApiError(res);
+      return
     }
     const channel = await res.json()
     newChannelName.value = ""
@@ -419,12 +465,13 @@ const createChannel = async () => {
     await loadHistory()
     connectStream()
   } catch (err) {
-    publishStatus.value = `create failed: ${err.message}`
+    console.error("Failed to create channel", err)
   }
 }
 
 const register = async () => {
   authStatus.value = "registering..."
+  globalError.value = ""
   try {
     const res = await fetch(`${gatewayUrl.value}/auth/register`, {
       method: "POST",
@@ -437,16 +484,18 @@ const register = async () => {
       }),
     })
     if (!res.ok) {
-      throw new Error(await res.text())
+      await handleApiError(res);
+      throw new Error("Register failed")
     }
     authStatus.value = "registered, please login"
   } catch (err) {
-    authStatus.value = `register failed: ${err.message}`
+    authStatus.value = `register failed`
   }
 }
 
 const login = async () => {
   authStatus.value = "logging in..."
+  globalError.value = ""
   try {
     const res = await fetch(`${gatewayUrl.value}/auth/login`, {
       method: "POST",
@@ -458,7 +507,8 @@ const login = async () => {
       }),
     })
     if (!res.ok) {
-      throw new Error(await res.text())
+      await handleApiError(res);
+      throw new Error("Login failed")
     }
     const user = await res.json()
     authenticated.value = true
@@ -469,7 +519,7 @@ const login = async () => {
     connectStream()
     scheduleRefresh()
   } catch (err) {
-    authStatus.value = `login failed: ${err.message}`
+    authStatus.value = `login failed`
   }
 }
 
@@ -489,26 +539,33 @@ const logout = async () => {
 }
 
 const refreshSession = async () => {
-  const res = await fetch(`${gatewayUrl.value}/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
-  })
-  if (res.ok) {
-    return true
+  try {
+    const res = await fetch(`${gatewayUrl.value}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    })
+    return res.ok
+  } catch (err) {
+    console.error("Refresh failed", err)
+    return false
   }
-  return false
 }
 
 const scheduleRefresh = () => {
   if (refreshTimer) {
-    clearInterval(refreshTimer)
+    clearTimeout(refreshTimer)
   }
-  refreshTimer = setInterval(async () => {
+  // Refresh every 12 minutes (Access Token persists 15 min)
+  refreshTimer = setTimeout(async () => {
+    if (!authenticated.value) return
     const ok = await refreshSession()
-    if (!ok) {
+    if (ok) {
+      scheduleRefresh()
+    } else {
       await logout()
+      authStatus.value = "Session expired, please login again"
     }
-  }, 10 * 60 * 1000)
+  }, 12 * 60 * 1000)
 }
 
 const checkSession = async () => {
