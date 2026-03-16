@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   nats:
     image: nats:2
@@ -14,8 +16,6 @@ services:
       POSTGRES_DB: storm
     ports:
       - "6433:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
 
   redis:
     image: redis:7
@@ -25,8 +25,7 @@ services:
   gateway:
     build:
       context: ../../services/gateway
-    cap_add:
-      - NET_ADMIN
+      dockerfile: Dockerfile
     environment:
       NATS_URL: nats://nats:4222
       GATEWAY_ADDR: :8080
@@ -51,25 +50,18 @@ services:
   messages:
     build:
       context: ../../services/messages
-    cap_add:
-      - NET_ADMIN
+      dockerfile: Dockerfile
     environment:
       NATS_URL: nats://nats:4222
-      SUBJECT: storm.events
-      MESSAGES_ADDR: :8081
-      PPROF_ADDR: :6061
-    ports:
-      - "8081:8081"
-      - "6061:6061"
     depends_on:
       - nats
 
   prometheus:
     image: prom/prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
   grafana:
     image: grafana/grafana

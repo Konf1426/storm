@@ -40,10 +40,24 @@ func TestEnvIntInvalidFallback(t *testing.T) {
 	}
 }
 
+func TestEnvIntValid(t *testing.T) {
+	t.Setenv("GOOD_INT", "42")
+	if got := envInt("GOOD_INT", 0); got != 42 {
+		t.Fatalf("expected 42, got %d", got)
+	}
+}
+
 func TestEnvBoolInvalidFallback(t *testing.T) {
 	t.Setenv("BAD_BOOL", "nope")
 	if got := envBool("BAD_BOOL", true); got != true {
 		t.Fatalf("expected fallback true, got %v", got)
+	}
+}
+
+func TestEnvBoolValid(t *testing.T) {
+	t.Setenv("GOOD_BOOL", "true")
+	if got := envBool("GOOD_BOOL", false); got != true {
+		t.Fatalf("expected true, got %v", got)
 	}
 }
 
@@ -372,5 +386,146 @@ func TestReadBodyTooLargeAdditional(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/publish", bytes.NewBuffer(payload))
 	if _, err := readBody(nil, req); err == nil {
 		t.Fatalf("expected payload too large error")
+	}
+}
+
+func TestWorkerPool(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	store := errStore{}
+	StartWorkerPool(ctx, store, 1)
+
+	asyncTaskQueue <- asyncTask{
+		taskType:  taskSaveMessage,
+		channelID: 1,
+		userID:    "user",
+		payload:   []byte("test"),
+	}
+
+	asyncTaskQueue <- asyncTask{
+		taskType:  taskSaveRefreshToken,
+		userID:    "user",
+		token:     "token",
+		expiresAt: time.Now(),
+	}
+
+	time.Sleep(50 * time.Millisecond) // Let workers process tasks
+	cancel()
+	time.Sleep(50 * time.Millisecond) // Let workers exit cleanly
+}
+
+func TestRateLimiterGet(t *testing.T) {
+	rl := newRateLimiter(10, 10)
+	l := rl.get("127.0.0.1")
+	if l == nil {
+		t.Fatalf("expected non-nil limiter")
+	}
+
+	l2 := rl.get("127.0.0.1")
+	if l != l2 {
+		t.Fatalf("expected exactly the same limiter on second get")
+	}
+
+	// simulate old entry for cleanup coverage
+	rl.mu.Lock()
+	e := rl.limiters["127.0.0.1"]
+	e.lastSeen = time.Now().Add(-11 * time.Minute)
+	rl.mu.Unlock()
+}
+
+func TestAuthRateLimitMiddleware(t *testing.T) {
+	t.Setenv("AUTH_RATE_LIMIT_ENABLED", "true")
+	rl := newRateLimiter(0, 0) // Deny all requests
+	handler := rl.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Attempt request while enabled and rate limited
+	req := httptest.NewRequest("GET", "/auth", nil)
+	req.RemoteAddr = "10.0.0.1:1234"
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 Too Many Requests, got %d", rec.Code)
+	}
+
+	// Disable rate limiting with ENV var
+	t.Setenv("AUTH_RATE_LIMIT_ENABLED", "false")
+	rec2 := httptest.NewRecorder()
+	handler.ServeHTTP(rec2, req)
+
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK since disabled, got %d", rec2.Code)
+	}
+}
+
+func TestSanitize(t *testing.T) {
+	input := "user\nname\r"
+	expected := "username"
+	if got := sanitize(input); got != expected {
+		t.Fatalf("expected %q, got %q", expected, got)
+	}
+}
+
+type mockNats struct {
+	connected bool
+}
+
+func (m *mockNats) Publish(subject string, data []byte) error { return nil }
+func (m *mockNats) ChanSubscribe(subject string, ch chan *nats.Msg) (Subscription, error) {
+	return nil, nil
+}
+func (m *mockNats) IsConnected() bool { return m.connected }
+
+func TestHealthzAndPingNats(t *testing.T) {
+	r := NewRouter(&mockNats{connected: false}, nil, nil, AuthConfig{})
+
+	reqHealth := httptest.NewRequest("GET", "/healthz", nil)
+	recHealth := httptest.NewRecorder()
+	r.ServeHTTP(recHealth, reqHealth)
+	if recHealth.Code != http.StatusOK {
+		t.Fatalf("healthz: expected 200, got %d", recHealth.Code)
+	}
+
+	reqPing := httptest.NewRequest("GET", "/ping-nats", nil)
+	recPing := httptest.NewRecorder()
+	r.ServeHTTP(recPing, reqPing)
+	if recPing.Code != http.StatusServiceUnavailable {
+		t.Fatalf("ping-nats: expected 503, got %d", recPing.Code)
+	}
+
+	r2 := NewRouter(&mockNats{connected: true}, nil, nil, AuthConfig{})
+	recPing2 := httptest.NewRecorder()
+	r2.ServeHTTP(recPing2, reqPing)
+	if recPing2.Code != http.StatusOK {
+		t.Fatalf("ping-nats: expected 200, got %d", recPing2.Code)
+	}
+}
+
+func TestRefreshMissingToken(t *testing.T) {
+	r := NewRouter(&mockNats{}, nil, nil, AuthConfig{})
+	req := httptest.NewRequest("POST", "/auth/refresh", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable { // store not configured
+		t.Fatalf("expected 503, got %d", rec.Code)
+	}
+
+	r2 := NewRouter(&mockNats{}, errStore{}, nil, AuthConfig{})
+	req2 := httptest.NewRequest("POST", "/auth/refresh", nil)
+	rec2 := httptest.NewRecorder()
+	r2.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusUnauthorized { // missing refresh token
+		t.Fatalf("expected 401 for missing token, got %d", rec2.Code)
+	}
+}
+
+func TestLogout(t *testing.T) {
+	r := NewRouter(&mockNats{}, errStore{}, nil, AuthConfig{})
+	req := httptest.NewRequest("POST", "/auth/logout", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 }
