@@ -22,6 +22,8 @@ services/gateway/gateway
 # Logs
 *.log
 out/
+.scannerwork/
+.sonar/
 
 # IDE
 .vscode/

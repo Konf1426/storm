@@ -87,6 +87,13 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE INDEX IF NOT EXISTS idx_messages_channel_id_id_desc
+  ON messages (channel_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_subject_created_at_desc
+  ON messages (subject, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id
+  ON refresh_tokens (user_id);
+
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS channel_id BIGINT NULL;
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS user_id TEXT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT NOT NULL DEFAULT '';

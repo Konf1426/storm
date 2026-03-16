@@ -50,6 +50,7 @@ type asyncTaskType int
 const (
 	taskSaveMessage asyncTaskType = iota
 	taskSaveRefreshToken
+	taskSaveSubjectMessage
 )
 
 type asyncTask struct {
@@ -57,6 +58,7 @@ type asyncTask struct {
 	channelID int64
 	userID    string
 	payload   []byte
+	subject   string
 	token     string
 	expiresAt time.Time
 }
@@ -64,6 +66,70 @@ type asyncTask struct {
 var (
 	asyncTaskQueue = make(chan asyncTask, 50000)
 )
+
+type ensureCache struct {
+	ttl     time.Duration
+	users   sync.Map
+	members sync.Map
+}
+
+func newEnsureCache(ttl time.Duration) *ensureCache {
+	if ttl <= 0 {
+		ttl = 5 * time.Minute
+	}
+	return &ensureCache{ttl: ttl}
+}
+
+func (c *ensureCache) userKnown(userID string) bool {
+	return c.fresh(&c.users, userID)
+}
+
+func (c *ensureCache) rememberUser(userID string) {
+	c.users.Store(userID, time.Now())
+}
+
+func (c *ensureCache) memberKnown(channelID int64, userID string) bool {
+	return c.fresh(&c.members, memberKey(channelID, userID))
+}
+
+func (c *ensureCache) rememberMember(channelID int64, userID string) {
+	c.members.Store(memberKey(channelID, userID), time.Now())
+}
+
+func (c *ensureCache) fresh(m *sync.Map, key string) bool {
+	v, ok := m.Load(key)
+	if !ok {
+		return false
+	}
+	ts, ok := v.(time.Time)
+	if !ok || time.Since(ts) > c.ttl {
+		m.Delete(key)
+		return false
+	}
+	return true
+}
+
+func memberKey(channelID int64, userID string) string {
+	return strconv.FormatInt(channelID, 10) + ":" + userID
+}
+
+var membershipCache = newEnsureCache(time.Duration(envInt("ENSURE_CACHE_TTL_SECONDS", 300)) * time.Second)
+
+func ensureMembershipCached(ctx context.Context, store Store, userID string, channelID int64) error {
+	if !membershipCache.userKnown(userID) {
+		if err := store.EnsureUser(ctx, userID); err != nil {
+			return err
+		}
+		membershipCache.rememberUser(userID)
+	}
+	if !membershipCache.memberKnown(channelID, userID) {
+		if err := store.EnsureMember(ctx, channelID, userID); err != nil {
+			return err
+		}
+		membershipCache.rememberMember(channelID, userID)
+	}
+	return nil
+}
 
 func StartWorkerPool(ctx context.Context, store Store, numWorkers int) {
 	log.Printf("starting message worker pool with %d workers", numWorkers)
@@ -83,6 +149,10 @@ func StartWorkerPool(ctx context.Context, store Store, numWorkers int) {
 					case taskSaveRefreshToken:
 						if err := store.SaveRefreshToken(context.Background(), task.userID, task.token, task.expiresAt); err != nil {
 							log.Printf("worker %d: store refresh token failed: %v", id, err)
+						}
+					case taskSaveSubjectMessage:
+						if err := store.SaveMessage(context.Background(), task.subject, task.payload); err != nil {
+							log.Printf("worker %d: store subject message failed: %v", id, err)
 						}
 					}
 				}
@@ -454,8 +524,13 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 				return
 			}
 			if store != nil {
-				if err := store.SaveMessage(req.Context(), subject, body); err != nil {
-					log.Printf("store message failed: %v", err)
+				msgCopy := make([]byte, len(body))
+				copy(msgCopy, body)
+				select {
+				case asyncTaskQueue <- asyncTask{taskType: taskSaveSubjectMessage, subject: subject, payload: msgCopy}:
+					metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
+				default:
+					log.Printf("async task queue full, dropping subject message for %s", subject)
 				}
 			}
 			w.WriteHeader(http.StatusAccepted)
@@ -531,12 +606,9 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 						http.Error(w, "missing user", http.StatusUnauthorized)
 						return
 					}
-					if err := store.EnsureUser(req.Context(), userID); err != nil {
+					if err := ensureMembershipCached(req.Context(), store, userID, channelID); err != nil {
 						http.Error(w, "ensure user failed", http.StatusInternalServerError)
 						return
-					}
-					if err := store.EnsureMember(req.Context(), channelID, userID); err != nil {
-						log.Printf("ensure member failed: %v", err)
 					}
 
 					payload, err := readMessagePayload(req)
@@ -716,10 +788,7 @@ func wsHandler(nc NatsClient, store Store, presence Presence) http.HandlerFunc {
 
 		userID := userFromContext(req.Context())
 		if store != nil && channelID != 0 && userID != "" {
-			if err := store.EnsureUser(ctx, userID); err != nil {
-				log.Printf("ensure user failed: %v", err)
-			}
-			if err := store.EnsureMember(ctx, channelID, userID); err != nil {
+			if err := ensureMembershipCached(ctx, store, userID, channelID); err != nil {
 				log.Printf("ensure member failed: %v", err)
 			}
 		}

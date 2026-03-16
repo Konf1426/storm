@@ -16,3 +16,5 @@ bash scripts/smoke-test.sh
 ## Notes
 - Les scans securite utilisent govulncheck + gosec.
 - Les smoke tests supposent gateway sur :8080.
+- SonarQube local: `docker compose -f infra/docker/docker-compose.yml up -d sonarqube`
+- Scan Windows: `powershell -ExecutionPolicy Bypass -File .\scripts\sonar-scan.ps1` (avec `SONAR_TOKEN`)

@@ -38,7 +38,8 @@ services:
       REDIS_ADDR: redis:6379
       AUTH_RATE_LIMIT_ENABLED: "false"
       BCRYPT_COST: "4"
-      WORKER_POOL_SIZE: "20"
+      WORKER_POOL_SIZE: "64"
+      ENSURE_CACHE_TTL_SECONDS: "300"
     ports:
       - "8080:8080"
       - "6060:6060"
@@ -80,6 +81,20 @@ services:
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
 
+  sonarqube:
+    image: sonarqube:community
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+
 volumes:
   pgdata:
   grafana_data:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:

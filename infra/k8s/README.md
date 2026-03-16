@@ -8,6 +8,17 @@ It is designed for a small cluster (dev/staging) and is not hardened for product
 kubectl apply -k infra/k8s
 ```
 
+## Quickstart (local cluster)
+```
+bash scripts/k8s-deploy.sh
+bash scripts/k8s-port-forward.sh
+```
+
+Cleanup:
+```
+bash scripts/k8s-cleanup.sh
+```
+
 ## Notes
 - Images are expected in a registry (set in `kustomization.yaml`).
 - Secrets are placeholders; replace before apply.
