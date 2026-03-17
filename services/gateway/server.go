@@ -245,6 +245,19 @@ type tokenClaims struct {
 	URLDomaine string `json:"urldomaine,omitempty"`
 }
 
+type channelEventPayload struct {
+	Type            string `json:"type"`
+	MessageID       int64  `json:"message_id,omitempty"`
+	ChannelID       int64  `json:"channel_id,omitempty"`
+	UserID          string `json:"user_id,omitempty"`
+	User            string `json:"user,omitempty"`
+	Message         string `json:"message,omitempty"`
+	RecipientUserID string `json:"recipient_user_id,omitempty"`
+	ReaderID        string `json:"reader_id,omitempty"`
+	Reader          string `json:"reader,omitempty"`
+	ReadAt          string `json:"read_at,omitempty"`
+}
+
 // Channel model.
 type Channel struct {
 	ID        int64     `json:"id"`
@@ -374,6 +387,7 @@ func registerChannelRoutes(r chi.Router, nc NatsClient, store Store) {
 		cr.Route("/{id}", func(ir chi.Router) {
 			ir.Post("/messages", handleChannelMessagesCreate(nc, store))
 			ir.Get("/messages", handleChannelMessagesList(store))
+			ir.Post("/messages/{messageId}/read", handleChannelMessageRead(nc, store))
 		})
 	})
 }
@@ -645,10 +659,46 @@ func handleChannelMessagesCreate(nc NatsClient, store Store) http.HandlerFunc {
 			http.Error(w, "save message failed: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if err := nc.Publish(msg.Subject, payload); err != nil {
+		if err := publishChannelMessageEvent(nc, msg, payload); err != nil {
 			log.Printf("nats publish failed: %v", err)
 		}
 		writeJSON(w, http.StatusCreated, msg)
+	}
+}
+
+func handleChannelMessageRead(nc NatsClient, store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		channelID, readerID, ok := requireChannelMessageAccess(w, req, store)
+		if !ok {
+			return
+		}
+		messageID, err := parseID(chi.URLParam(req, "messageId"))
+		if err != nil {
+			http.Error(w, "invalid message id", http.StatusBadRequest)
+			return
+		}
+		var payload struct {
+			RecipientUserID string `json:"recipient_user_id"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil || strings.TrimSpace(payload.RecipientUserID) == "" {
+			http.Error(w, errInvalidPayload, http.StatusBadRequest)
+			return
+		}
+		payload.RecipientUserID = strings.TrimSpace(payload.RecipientUserID)
+		if payload.RecipientUserID == readerID {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		readerName, err := resolveReaderName(req.Context(), store, readerID)
+		if err != nil {
+			http.Error(w, "reader lookup failed", http.StatusInternalServerError)
+			return
+		}
+		if err := publishReadReceipt(nc, channelID, messageID, payload.RecipientUserID, readerID, readerName); err != nil {
+			http.Error(w, "publish receipt failed", http.StatusBadGateway)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
@@ -998,6 +1048,75 @@ func savePublishedMessage(ctx context.Context, store Store, subject string, body
 	if err := store.SaveMessage(ctx, subject, body); err != nil {
 		log.Printf("store message failed: %v", err)
 	}
+}
+
+func publishChannelMessageEvent(nc NatsClient, msg Message, payload []byte) error {
+	eventPayload, err := buildChannelMessageEvent(msg, payload)
+	if err != nil {
+		return err
+	}
+	return nc.Publish(msg.Subject, eventPayload)
+}
+
+func buildChannelMessageEvent(msg Message, payload []byte) ([]byte, error) {
+	userID, user, message := parseChannelMessagePayload(payload, msg.UserID)
+	event := channelEventPayload{
+		Type:      "chat_message",
+		MessageID: msg.ID,
+		ChannelID: msg.ChannelID,
+		UserID:    userID,
+		User:      user,
+		Message:   message,
+	}
+	return json.Marshal(event)
+}
+
+func parseChannelMessagePayload(payload []byte, fallbackUserID string) (string, string, string) {
+	var data struct {
+		UserID  string `json:"user_id"`
+		User    string `json:"user"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(payload, &data); err == nil && strings.TrimSpace(data.Message) != "" {
+		userID := strings.TrimSpace(data.UserID)
+		if userID == "" {
+			userID = fallbackUserID
+		}
+		return userID, strings.TrimSpace(data.User), data.Message
+	}
+	return fallbackUserID, "", string(payload)
+}
+
+func resolveReaderName(ctx context.Context, store Store, readerID string) (string, error) {
+	user, err := store.GetUser(ctx, readerID)
+	if err != nil {
+		return "", err
+	}
+	if user.DisplayName != "" {
+		return user.DisplayName, nil
+	}
+	return user.ID, nil
+}
+
+func publishReadReceipt(
+	nc NatsClient,
+	channelID int64,
+	messageID int64,
+	recipientUserID, readerID, readerName string,
+) error {
+	payload, err := json.Marshal(channelEventPayload{
+		Type:            "read_receipt",
+		MessageID:       messageID,
+		ChannelID:       channelID,
+		RecipientUserID: recipientUserID,
+		ReaderID:        readerID,
+		Reader:          readerName,
+		ReadAt:          time.Now().Format(time.RFC3339),
+	})
+	if err != nil {
+		return err
+	}
+	return nc.Publish(channelSubject(channelID), payload)
 }
 
 func requireChannelMessageAccess(w http.ResponseWriter, req *http.Request, store Store) (int64, string, bool) {

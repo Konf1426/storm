@@ -1,5 +1,14 @@
 ﻿<template>
   <div class="min-h-screen">
+    <div class="pointer-events-none fixed inset-x-0 top-6 z-50 flex flex-col items-center gap-3 px-4">
+      <div
+        v-for="toast in receiptToasts"
+        :key="toast.id"
+        class="w-full max-w-md rounded-2xl border border-sky-200 bg-white/95 px-4 py-3 shadow-xl backdrop-blur animate-in fade-in slide-in-from-top-3"
+      >
+        <p class="text-sm font-medium text-sky-950">{{ toast.text }}</p>
+      </div>
+    </div>
     <header class="px-6 pt-10 pb-6 lg:px-12">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -259,13 +268,16 @@ const globalError = ref("")
 const connected = ref(false)
 const lastEventAt = ref("")
 const messages = ref([])
+const receiptToasts = ref([])
 const recentWindow = ref([])
 let stream = null
 let nextId = 1
+let nextToastId = 1
 let intervalId = null
 let refreshTimer = null
 let reconnectTimer = null
 const feedRef = ref(null)
+const sentReadReceipts = new Set()
 
 const channels = ref([])
 const selectedChannelId = ref("")
@@ -289,11 +301,26 @@ const connectionHint = computed(() =>
 
 const recentRate = computed(() => recentWindow.value.length)
 
+const addReceiptToast = (text) => {
+  const id = nextToastId++
+  receiptToasts.value = [...receiptToasts.value, { id, text }]
+  setTimeout(() => {
+    receiptToasts.value = receiptToasts.value.filter((toast) => toast.id !== id)
+  }, 4000)
+}
+
 const pushEvent = (text) => {
-  const parsed = parseMessage(text)
+  const parsed = parseIncomingEvent(text)
+  if (parsed.type === "read_receipt") {
+    handleReadReceipt(parsed)
+    return
+  }
   const now = new Date()
   const entry = {
     id: nextId++,
+    messageId: parsed.messageId || null,
+    authorId: parsed.authorId || "",
+    messageBody: parsed.message || "",
     time: now.toLocaleTimeString(),
     date: now.toLocaleDateString(),
     text: formatMessageText(parsed.authorId, parsed.message, parsed.fallbackAuthor),
@@ -311,6 +338,7 @@ const pushEvent = (text) => {
   if (shouldStick) {
     scrollToBottom()
   }
+  markMessageAsRead(entry.messageId, entry.authorId)
 }
 
 const loadUsers = async () => {
@@ -498,9 +526,12 @@ const loadHistory = async () => {
       .slice()
       .reverse()
       .map((item) => {
-        const parsed = parseMessage(item.payload || "", item.user_id)
+        const parsed = parseIncomingEvent(item.payload || "", item.user_id, item.id)
         return {
           id: `history-${item.id}`,
+          messageId: item.id,
+          authorId: item.user_id || parsed.authorId || "",
+          messageBody: parsed.message || "",
           time: new Date(item.created_at).toLocaleTimeString(),
           date: new Date(item.created_at).toLocaleDateString(),
           text: formatMessageText(item.user_id || parsed.authorId, parsed.message, parsed.fallbackAuthor),
@@ -509,6 +540,12 @@ const loadHistory = async () => {
         }
       })
     scrollToBottom()
+    const latestUnread = history.find(
+      (item) => item.user_id && item.user_id !== currentUser.value
+    )
+    if (latestUnread) {
+      await markMessageAsRead(latestUnread.id, latestUnread.user_id)
+    }
   } catch (err) {
     console.error("Failed to load history", err)
   }
@@ -617,9 +654,42 @@ const logout = async () => {
   profileStatus.value = ""
   channels.value = []
   messages.value = []
+  receiptToasts.value = []
+  sentReadReceipts.clear()
   disconnectStream()
   if (refreshTimer) {
     clearInterval(refreshTimer)
+  }
+}
+
+const markMessageAsRead = async (messageId, recipientUserId) => {
+  if (!authenticated.value || !selectedChannelId.value || !messageId || !recipientUserId) {
+    return
+  }
+  if (recipientUserId === currentUser.value) {
+    return
+  }
+  const receiptKey = `${selectedChannelId.value}:${messageId}:${recipientUserId}`
+  if (sentReadReceipts.has(receiptKey)) {
+    return
+  }
+  try {
+    const res = await fetch(
+      `${gatewayUrl.value}/channels/${selectedChannelId.value}/messages/${messageId}/read`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ recipient_user_id: recipientUserId }),
+      }
+    )
+    if (!res.ok) {
+      await handleApiError(res)
+      return
+    }
+    sentReadReceipts.add(receiptKey)
+  } catch (err) {
+    console.error("Failed to send read receipt", err)
   }
 }
 
@@ -748,11 +818,55 @@ const checkSession = async () => {
   }
 }
 
-const parseMessage = (raw, fallbackAuthor = "") => {
+const handleReadReceipt = (receipt) => {
+  if (!receipt.recipientUserId || receipt.recipientUserId !== currentUser.value) {
+    return
+  }
+  if (receipt.readerId && receipt.readerId === currentUser.value) {
+    return
+  }
+  const readerName = receipt.readerName || resolveDisplayName(receipt.readerId, "")
+  const messagePreview = buildReadMessagePreview(receipt.messageId)
+  addReceiptToast(`${readerName || "Someone"} read your message${messagePreview}`)
+}
+
+const buildReadMessagePreview = (messageId) => {
+  if (!messageId) {
+    return ""
+  }
+  const message = messages.value.find((item) => item.messageId === messageId)
+  const preview = (message?.messageBody || "").trim().slice(0, 15)
+  if (!preview) {
+    return ""
+  }
+  return `: "${preview}${message.messageBody.trim().length > 15 ? "..." : ""}"`
+}
+
+const parseIncomingEvent = (raw, fallbackAuthor = "", fallbackMessageId = null) => {
   try {
     const parsed = JSON.parse(raw)
+    if (parsed?.type === "read_receipt") {
+      return {
+        type: "read_receipt",
+        messageId: parsed.message_id || null,
+        recipientUserId: parsed.recipient_user_id || "",
+        readerId: parsed.reader_id || "",
+        readerName: parsed.reader || "",
+      }
+    }
+    if (parsed?.type === "chat_message" && parsed.message) {
+      return {
+        type: "chat_message",
+        messageId: parsed.message_id || fallbackMessageId,
+        authorId: parsed.user_id || fallbackAuthor || "",
+        fallbackAuthor: parsed.user || fallbackAuthor || "",
+        message: parsed.message,
+      }
+    }
     if (parsed && parsed.message) {
       return {
+        type: "chat_message",
+        messageId: fallbackMessageId,
         authorId: parsed.user_id || fallbackAuthor || "",
         fallbackAuthor: parsed.user || fallbackAuthor || "",
         message: parsed.message,
@@ -762,6 +876,8 @@ const parseMessage = (raw, fallbackAuthor = "") => {
     // ignore
   }
   return {
+    type: "chat_message",
+    messageId: fallbackMessageId,
     authorId: fallbackAuthor || "",
     fallbackAuthor: fallbackAuthor || "",
     message: raw,
