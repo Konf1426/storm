@@ -153,7 +153,15 @@
             <div class="mt-4 flex flex-col gap-3">
               <div>
                 <label class="text-sm font-medium text-foreground">Message</label>
-                <Input v-model="messageText" placeholder="type your message" />
+                <Textarea
+                  v-model="messageText"
+                  rows="3"
+                  placeholder="type your message"
+                  @keydown="handleMessageKeydown"
+                />
+                <p class="mt-1 text-xs text-muted-foreground">
+                  Enter to send. Shift+Enter for a new line.
+                </p>
               </div>
               <div class="flex flex-wrap items-center gap-3">
                 <Button @click="sendMessage">Send</Button>
@@ -238,6 +246,7 @@ import Card from "./components/ui/Card.vue"
 import CardContent from "./components/ui/CardContent.vue"
 import CardHeader from "./components/ui/CardHeader.vue"
 import Input from "./components/ui/Input.vue"
+import Textarea from "./components/ui/Textarea.vue"
 
 const gatewayUrl = ref(import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080")
 const subject = ref("storm.events")
@@ -441,6 +450,14 @@ const sendMessage = async () => {
       publishStatus.value = ""
     }, 2000)
   }
+}
+
+const handleMessageKeydown = async (event) => {
+  if (event.key !== "Enter" || event.shiftKey) {
+    return
+  }
+  event.preventDefault()
+  await sendMessage()
 }
 
 const loadChannels = async () => {
