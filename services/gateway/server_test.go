@@ -218,6 +218,11 @@ func (m *memStore) UpdateUser(_ context.Context, userID, displayName, password s
 	}
 	if displayName != "" {
 		rec.user.DisplayName = displayName
+		if displayName != userID {
+			delete(m.users, userID)
+			rec.user.ID = displayName
+			userID = displayName
+		}
 	}
 	if password != "" {
 		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -240,7 +245,20 @@ func (m *memStore) DeleteUser(_ context.Context, userID string) error {
 func (m *memStore) VerifyUserPassword(_ context.Context, userID, password string) (User, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	rec, ok := m.users[userID]
+	var (
+		rec userRecord
+		ok  bool
+	)
+	rec, ok = m.users[userID]
+	if !ok {
+		for _, candidate := range m.users {
+			if candidate.user.DisplayName == userID {
+				rec = candidate
+				ok = true
+				break
+			}
+		}
+	}
 	if !ok || rec.passwordHash == "" {
 		return User{}, errors.New("invalid user")
 	}
@@ -489,7 +507,6 @@ func (f *flushRecorder) Write(p []byte) (int, error) {
 func (f *flushRecorder) WriteHeader(statusCode int) { f.code = statusCode }
 
 func (f *flushRecorder) Flush() {}
-
 
 func TestAuthMiddlewareRejectsMissingToken(t *testing.T) {
 	nc := newFakeNats()
@@ -1126,8 +1143,8 @@ func TestAuthFlowAndUsersCRUD(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	patchBody := `{"display_name":"Alice Updated"}`
-	req, _ = http.NewRequest(http.MethodPatch, srv.URL+"/users/alice", strings.NewReader(patchBody))
+	patchBody := `{"display_name":"Crousti","password":"newpass123"}`
+	req, _ = http.NewRequest(http.MethodPatch, srv.URL+"/auth/me", strings.NewReader(patchBody))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err = client.Do(req)
 	if err != nil {
@@ -1135,6 +1152,36 @@ func TestAuthFlowAndUsersCRUD(t *testing.T) {
 	}
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("patch user status %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	req, _ = http.NewRequest(http.MethodPost, srv.URL+"/auth/logout", nil)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("logout failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("logout status %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	loginBody = `{"user_id":"alice","password":"newpass123"}`
+	resp, err = client.Post(srv.URL+"/auth/login", "application/json", strings.NewReader(loginBody))
+	if err != nil {
+		t.Fatalf("login with old id failed unexpectedly: %v", err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected old id login to fail, got %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	loginBody = `{"user_id":"Crousti","password":"newpass123"}`
+	resp, err = client.Post(srv.URL+"/auth/login", "application/json", strings.NewReader(loginBody))
+	if err != nil {
+		t.Fatalf("login with updated display name failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("login with updated display name status %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
@@ -1148,13 +1195,23 @@ func TestAuthFlowAndUsersCRUD(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	req, _ = http.NewRequest(http.MethodDelete, srv.URL+"/users/alice", nil)
+	req, _ = http.NewRequest(http.MethodDelete, srv.URL+"/auth/me", nil)
 	resp, err = client.Do(req)
 	if err != nil {
 		t.Fatalf("delete user failed: %v", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("delete user status %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	req, _ = http.NewRequest(http.MethodGet, srv.URL+"/auth/me", nil)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("me after delete failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("me after delete status %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 }
@@ -1244,7 +1301,6 @@ func TestReadMessagePayloadEmptyJSON(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
-
 
 func TestAuthMiddlewareDisabled(t *testing.T) {
 	called := false

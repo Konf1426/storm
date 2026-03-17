@@ -174,14 +174,17 @@ func TestAuthRefreshExpiredToken(t *testing.T) {
 	}
 }
 
-
 func TestSignToken(t *testing.T) {
 	secret := []byte("secret")
-	tokenStr, exp := signToken(secret, "user-1", time.Minute)
+	cfg := AuthConfig{
+		CookieDomain: "storm.local",
+		CorsOrigin:   "https://storm.local",
+	}
+	tokenStr, exp := signToken(cfg, secret, "user-1", time.Minute)
 	if exp.Before(time.Now()) {
 		t.Fatalf("expected future expiration")
 	}
-	claims := &jwt.RegisteredClaims{}
+	claims := &tokenClaims{}
 	parsed, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
 		return secret, nil
 	})
@@ -190,6 +193,12 @@ func TestSignToken(t *testing.T) {
 	}
 	if claims.Subject != "user-1" {
 		t.Fatalf("unexpected subject: %q", claims.Subject)
+	}
+	if !claims.NoSnif {
+		t.Fatalf("expected nosnif claim")
+	}
+	if claims.URLDomaine != "storm.local" {
+		t.Fatalf("unexpected urldomaine: %q", claims.URLDomaine)
 	}
 }
 
@@ -293,7 +302,6 @@ func (s sendingNats) ChanSubscribe(_ string, ch chan *nats.Msg) (Subscription, e
 
 func (s sendingNats) IsConnected() bool { return true }
 
-
 type errReadCloser struct{}
 
 func (errReadCloser) Read([]byte) (int, error) { return 0, errors.New("read failed") }
@@ -350,8 +358,10 @@ func (errStore) VerifyUserPassword(context.Context, string, string) (User, error
 func (errStore) SaveRefreshToken(context.Context, string, string, time.Time) error {
 	return errors.New("save refresh failed")
 }
-func (errStore) GetRefreshToken(context.Context, string) (RefreshToken, error) { return RefreshToken{}, nil }
-func (errStore) RevokeRefreshToken(context.Context, string) error               { return nil }
+func (errStore) GetRefreshToken(context.Context, string) (RefreshToken, error) {
+	return RefreshToken{}, nil
+}
+func (errStore) RevokeRefreshToken(context.Context, string) error { return nil }
 func (errStore) CreateChannel(context.Context, string, string) (Channel, error) {
 	return Channel{}, nil
 }
@@ -527,5 +537,49 @@ func TestLogout(t *testing.T) {
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+}
+
+func TestSecurityHeadersMiddleware(t *testing.T) {
+	r := NewRouter(&mockNats{connected: true}, nil, nil, AuthConfig{CorsOrigin: "http://localhost:5173"})
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("unexpected nosniff header: %q", got)
+	}
+	if got := rec.Header().Get("X-Frame-Options"); got != "DENY" {
+		t.Fatalf("unexpected frame options: %q", got)
+	}
+	if got := rec.Header().Get("Referrer-Policy"); got != "no-referrer" {
+		t.Fatalf("unexpected referrer policy: %q", got)
+	}
+	if got := rec.Header().Get("Permissions-Policy"); got == "" {
+		t.Fatalf("expected permissions policy header")
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("unexpected cache-control: %q", got)
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); !strings.Contains(got, "connect-src 'self' http://localhost:5173 ws://localhost:5173") {
+		t.Fatalf("unexpected csp: %q", got)
+	}
+	if got := rec.Header().Get("Strict-Transport-Security"); got != "" {
+		t.Fatalf("did not expect hsts on http request, got %q", got)
+	}
+}
+
+func TestSecurityHeadersMiddlewareSetsHSTSOnHTTPS(t *testing.T) {
+	r := NewRouter(&mockNats{connected: true}, nil, nil, AuthConfig{CorsOrigin: "https://storm.local"})
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Strict-Transport-Security"); got == "" {
+		t.Fatalf("expected hsts header")
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); !strings.Contains(got, "wss://storm.local") {
+		t.Fatalf("expected wss origin in csp, got %q", got)
 	}
 }
