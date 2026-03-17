@@ -539,3 +539,47 @@ func TestLogout(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 }
+
+func TestSecurityHeadersMiddleware(t *testing.T) {
+	r := NewRouter(&mockNats{connected: true}, nil, nil, AuthConfig{CorsOrigin: "http://localhost:5173"})
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("unexpected nosniff header: %q", got)
+	}
+	if got := rec.Header().Get("X-Frame-Options"); got != "DENY" {
+		t.Fatalf("unexpected frame options: %q", got)
+	}
+	if got := rec.Header().Get("Referrer-Policy"); got != "no-referrer" {
+		t.Fatalf("unexpected referrer policy: %q", got)
+	}
+	if got := rec.Header().Get("Permissions-Policy"); got == "" {
+		t.Fatalf("expected permissions policy header")
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("unexpected cache-control: %q", got)
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); !strings.Contains(got, "connect-src 'self' http://localhost:5173 ws://localhost:5173") {
+		t.Fatalf("unexpected csp: %q", got)
+	}
+	if got := rec.Header().Get("Strict-Transport-Security"); got != "" {
+		t.Fatalf("did not expect hsts on http request, got %q", got)
+	}
+}
+
+func TestSecurityHeadersMiddlewareSetsHSTSOnHTTPS(t *testing.T) {
+	r := NewRouter(&mockNats{connected: true}, nil, nil, AuthConfig{CorsOrigin: "https://storm.local"})
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Strict-Transport-Security"); got == "" {
+		t.Fatalf("expected hsts header")
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); !strings.Contains(got, "wss://storm.local") {
+		t.Fatalf("expected wss origin in csp, got %q", got)
+	}
+}

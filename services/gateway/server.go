@@ -298,6 +298,7 @@ func (s *natsSubscription) Unsubscribe() error {
 
 func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) http.Handler {
 	r := chi.NewRouter()
+	r.Use(securityHeadersMiddleware(auth.CorsOrigin))
 	r.Use(corsMiddleware(auth.CorsOrigin))
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -1153,6 +1154,65 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 
 func presenceKey(channelID int64) string {
 	return "channel:" + strconv.FormatInt(channelID, 10)
+}
+
+func securityHeadersMiddleware(corsOrigin string) func(http.Handler) http.Handler {
+	csp := buildCSP(corsOrigin)
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("X-Frame-Options", "DENY")
+			w.Header().Set("Referrer-Policy", "no-referrer")
+			w.Header().Set("X-DNS-Prefetch-Control", "off")
+			w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+			w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+			w.Header().Set("Content-Security-Policy", csp)
+			if isHTTPS(req) {
+				w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+			}
+			if !strings.HasPrefix(req.URL.Path, "/ws") {
+				w.Header().Set("Cache-Control", "no-store")
+			}
+			next.ServeHTTP(w, req)
+		})
+	}
+}
+
+func buildCSP(corsOrigin string) string {
+	connectSrc := []string{"'self'"}
+	if corsOrigin != "" {
+		connectSrc = append(connectSrc, corsOrigin)
+		if wsOrigin := websocketOrigin(corsOrigin); wsOrigin != "" {
+			connectSrc = append(connectSrc, wsOrigin)
+		}
+	}
+	return strings.Join([]string{
+		"default-src 'none'",
+		"base-uri 'none'",
+		"frame-ancestors 'none'",
+		"form-action 'self'",
+		"connect-src " + strings.Join(connectSrc, " "),
+		"img-src 'self' data:",
+		"style-src 'self' 'unsafe-inline'",
+		"script-src 'self'",
+	}, "; ")
+}
+
+func websocketOrigin(origin string) string {
+	if strings.HasPrefix(origin, "https://") {
+		return "wss://" + strings.TrimPrefix(origin, "https://")
+	}
+	if strings.HasPrefix(origin, "http://") {
+		return "ws://" + strings.TrimPrefix(origin, "http://")
+	}
+	return ""
+}
+
+func isHTTPS(req *http.Request) bool {
+	if req.TLS != nil {
+		return true
+	}
+	return strings.EqualFold(req.Header.Get("X-Forwarded-Proto"), "https")
 }
 
 func corsMiddleware(origin string) func(http.Handler) http.Handler {
