@@ -42,12 +42,12 @@
           <CardContent>
             <div class="space-y-4">
               <div>
-                <label class="text-sm font-medium text-foreground">User ID</label>
-                <Input v-model="loginUser" placeholder="user-1" />
+                <label for="login-user" class="text-sm font-medium text-foreground">User ID</label>
+                <Input id="login-user" v-model="loginUser" placeholder="user-1" />
               </div>
               <div>
-                <label class="text-sm font-medium text-foreground">Password</label>
-                <Input v-model="loginPassword" type="password" placeholder="••••••" />
+                <label for="login-password" class="text-sm font-medium text-foreground">Password</label>
+                <Input id="login-password" v-model="loginPassword" type="password" placeholder="••••••" />
               </div>
               <div class="flex flex-wrap gap-3">
                 <Button @click="login">Login</Button>
@@ -79,20 +79,21 @@
           <CardContent>
             <div class="space-y-4">
               <div>
-                <label class="text-sm font-medium text-foreground">Gateway URL</label>
-                <Input v-model="gatewayUrl" placeholder="http://localhost:8080" />
+                <label for="gateway-url" class="text-sm font-medium text-foreground">Gateway URL</label>
+                <Input id="gateway-url" v-model="gatewayUrl" placeholder="http://localhost:8080" />
               </div>
               <div v-if="!selectedChannelId">
-                <label class="text-sm font-medium text-foreground">Subject</label>
-                <Input v-model="subject" placeholder="storm.events" />
+                <label for="message-subject" class="text-sm font-medium text-foreground">Subject</label>
+                <Input id="message-subject" v-model="subject" placeholder="storm.events" />
                 <p class="mt-1 text-xs text-muted-foreground">
                   Used only when no channel is selected.
                 </p>
               </div>
               <div>
-                <label class="text-sm font-medium text-foreground">Channel</label>
+                <label for="channel-select" class="text-sm font-medium text-foreground">Channel</label>
                 <div class="mt-2 flex flex-wrap gap-2">
                   <select
+                    id="channel-select"
                     v-model="selectedChannelId"
                     class="w-full rounded-2xl border border-border bg-white/90 px-4 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
                   >
@@ -101,7 +102,7 @@
                       {{ channel.name }} (#{{ channel.id }})
                     </option>
                   </select>
-                  <Input v-model="newChannelName" placeholder="new channel name" />
+                  <Input id="new-channel-name" v-model="newChannelName" placeholder="new channel name" />
                   <Button variant="outline" @click="createChannel">Create channel</Button>
                 </div>
                 <div class="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -152,8 +153,9 @@
             </div>
             <div class="mt-4 flex flex-col gap-3">
               <div>
-                <label class="text-sm font-medium text-foreground">Message</label>
+                <label for="message-input" class="text-sm font-medium text-foreground">Message</label>
                 <Textarea
+                  id="message-input"
                   v-model="messageText"
                   rows="3"
                   placeholder="type your message"
@@ -186,12 +188,12 @@
           <CardContent>
             <div class="grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
               <div>
-                <label class="text-sm font-medium text-foreground">Display name</label>
-                <Input v-model="profileDisplayName" placeholder="Your public name" />
+                <label for="profile-display-name" class="text-sm font-medium text-foreground">Display name</label>
+                <Input id="profile-display-name" v-model="profileDisplayName" placeholder="Your public name" />
               </div>
               <div>
-                <label class="text-sm font-medium text-foreground">New password</label>
-                <Input v-model="profilePassword" type="password" placeholder="Leave empty to keep current password" />
+                <label for="profile-password" class="text-sm font-medium text-foreground">New password</label>
+                <Input id="profile-password" v-model="profilePassword" type="password" placeholder="Leave empty to keep current password" />
               </div>
               <div class="flex flex-wrap items-end gap-3">
                 <Button @click="updateProfile">Save profile</Button>
@@ -387,6 +389,7 @@ const handleApiError = async (res) => {
   try {
     message = await res.text();
   } catch (e) {
+    console.error("Failed to read API error body", e)
     message = "Unknown error";
   }
 
@@ -444,6 +447,7 @@ const sendMessage = async () => {
     messageText.value = ""
     publishStatus.value = "sent"
   } catch (err) {
+    console.error("Failed to send message", err)
     publishStatus.value = `failed`
   } finally {
     setTimeout(() => {
@@ -559,6 +563,7 @@ const register = async () => {
     }
     authStatus.value = "registered, please login"
   } catch (err) {
+    console.error("Register failed", err)
     authStatus.value = `register failed`
   }
 }
@@ -593,6 +598,7 @@ const login = async () => {
     connectStream()
     scheduleRefresh()
   } catch (err) {
+    console.error("Login failed", err)
     authStatus.value = `login failed`
   }
 }
@@ -661,6 +667,7 @@ const updateProfile = async () => {
     profileStatus.value = "profile updated"
     await loadHistory()
   } catch (err) {
+    console.error("Profile update failed", err)
     profileStatus.value = "update failed"
   } finally {
     setTimeout(() => {
@@ -670,7 +677,7 @@ const updateProfile = async () => {
 }
 
 const deleteAccount = async () => {
-  const confirmed = window.confirm("Delete your account permanently?")
+  const confirmed = globalThis.confirm("Delete your account permanently?")
   if (!confirmed) return
 
   profileStatus.value = "deleting..."
@@ -687,6 +694,7 @@ const deleteAccount = async () => {
     await logout()
     authStatus.value = "account deleted"
   } catch (err) {
+    console.error("Delete account failed", err)
     profileStatus.value = "delete failed"
   }
 }

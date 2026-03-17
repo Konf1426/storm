@@ -67,6 +67,20 @@ var (
 	asyncTaskQueue = make(chan asyncTask, 50000)
 )
 
+const (
+	errStoreNotConfigured = "store not configured"
+	errInvalidPayload     = "invalid payload"
+	errUpdateUserFailed   = "update user failed"
+	errMissingUser        = "missing user"
+	errInvalidChannelID   = "invalid channel id"
+
+	logEnsureMemberFailed = "ensure member failed: %v"
+)
+
+var noopCleanup = func() {
+	// No presence tracking was enabled for this connection.
+}
+
 func StartWorkerPool(ctx context.Context, store Store, numWorkers int) {
 	log.Printf("starting message worker pool with %d workers", numWorkers)
 	for i := 0; i < numWorkers; i++ {
@@ -77,19 +91,23 @@ func StartWorkerPool(ctx context.Context, store Store, numWorkers int) {
 					return
 				case task := <-asyncTaskQueue:
 					metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
-					switch task.taskType {
-					case taskSaveMessage:
-						if _, err := store.SaveChannelMessage(context.Background(), task.channelID, task.userID, task.payload); err != nil {
-							log.Printf("worker %d: store message failed: %v", id, err)
-						}
-					case taskSaveRefreshToken:
-						if err := store.SaveRefreshToken(context.Background(), task.userID, task.token, task.expiresAt); err != nil {
-							log.Printf("worker %d: store refresh token failed: %v", id, err)
-						}
-					}
+					processAsyncTask(id, store, task)
 				}
 			}
 		}(i)
+	}
+}
+
+func processAsyncTask(workerID int, store Store, task asyncTask) {
+	switch task.taskType {
+	case taskSaveMessage:
+		if _, err := store.SaveChannelMessage(context.Background(), task.channelID, task.userID, task.payload); err != nil {
+			log.Printf("worker %d: store message failed: %v", workerID, err)
+		}
+	case taskSaveRefreshToken:
+		if err := store.SaveRefreshToken(context.Background(), task.userID, task.token, task.expiresAt); err != nil {
+			log.Printf("worker %d: store refresh token failed: %v", workerID, err)
+		}
 	}
 }
 
@@ -301,6 +319,14 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 	r.Use(securityHeadersMiddleware(auth.CorsOrigin))
 	r.Use(corsMiddleware(auth.CorsOrigin))
 
+	registerHealthRoutes(r, nc)
+	registerAuthRoutes(r, store, auth)
+	registerProtectedRoutes(r, nc, store, presence, auth)
+
+	return r
+}
+
+func registerHealthRoutes(r chi.Router, nc NatsClient) {
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
@@ -316,447 +342,445 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("nats ok"))
 	})
+}
 
+func registerAuthRoutes(r chi.Router, store Store, auth AuthConfig) {
 	r.Route("/auth", func(ar chi.Router) {
 		ar.Use(authRateLimiter.middleware)
-		ar.Post("/register", func(w http.ResponseWriter, req *http.Request) {
-			if store == nil {
-				http.Error(w, "store not configured", http.StatusServiceUnavailable)
-				return
-			}
-			var payload struct {
-				UserID      string `json:"user_id"`
-				Password    string `json:"password"` // #nosec G117
-				DisplayName string `json:"display_name"`
-			}
-			if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-				http.Error(w, "invalid payload", http.StatusBadRequest)
-				return
-			}
-			payload.UserID = strings.TrimSpace(payload.UserID)
-			payload.Password = strings.TrimSpace(payload.Password)
-			if payload.UserID == "" || payload.Password == "" {
-				http.Error(w, "user_id and password required", http.StatusBadRequest)
-				return
-			}
-			user, err := store.CreateUser(req.Context(), payload.UserID, payload.Password, payload.DisplayName)
+		ar.Post("/register", handleRegister(store))
+		ar.Post("/login", handleLogin(store, auth))
+		ar.Post("/refresh", handleRefresh(store, auth))
+		ar.Post("/logout", handleLogout(store, auth))
+		ar.With(authMiddleware(auth)).Get("/me", handleAuthMeGet(store))
+		ar.With(authMiddleware(auth)).Patch("/me", handleAuthMePatch(store, auth))
+		ar.With(authMiddleware(auth)).Delete("/me", handleAuthMeDelete(store, auth))
+	})
+}
+
+func registerProtectedRoutes(r chi.Router, nc NatsClient, store Store, presence Presence, auth AuthConfig) {
+	r.Route("/", func(pr chi.Router) {
+		pr.Use(authMiddleware(auth))
+		pr.Post("/publish", handlePublish(nc, store))
+		pr.Get("/ws", wsHandler(nc, store, presence))
+		registerChannelRoutes(pr, nc, store)
+		registerUserRoutes(pr, store)
+	})
+}
+
+func registerChannelRoutes(r chi.Router, nc NatsClient, store Store) {
+	r.Route("/channels", func(cr chi.Router) {
+		cr.Get("/", handleChannelsList(store))
+		cr.Post("/", handleChannelsCreate(store))
+		cr.Route("/{id}", func(ir chi.Router) {
+			ir.Post("/messages", handleChannelMessagesCreate(nc, store))
+			ir.Get("/messages", handleChannelMessagesList(store))
+		})
+	})
+}
+
+func registerUserRoutes(r chi.Router, store Store) {
+	r.Route("/users", func(ur chi.Router) {
+		ur.Get("/", handleUsersList(store))
+		ur.Get("/{id}", handleUsersGet(store))
+		ur.Post("/", handleUsersCreate(store))
+		ur.Patch("/{id}", handleUsersPatch(store))
+		ur.Delete("/{id}", handleUsersDelete(store))
+	})
+}
+
+func handleRegister(store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if !requireStore(w, store) {
+			return
+		}
+		var payload struct {
+			UserID      string `json:"user_id"`
+			Password    string `json:"password"` // #nosec G117
+			DisplayName string `json:"display_name"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			http.Error(w, errInvalidPayload, http.StatusBadRequest)
+			return
+		}
+		payload.UserID = strings.TrimSpace(payload.UserID)
+		payload.Password = strings.TrimSpace(payload.Password)
+		if payload.UserID == "" || payload.Password == "" {
+			http.Error(w, "user_id and password required", http.StatusBadRequest)
+			return
+		}
+		user, err := store.CreateUser(req.Context(), payload.UserID, payload.Password, payload.DisplayName)
+		if err != nil {
+			log.Printf("create user failed: %v", err)
+			http.Error(w, "create user failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusCreated, user)
+	}
+}
+
+func handleLogin(store Store, auth AuthConfig) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if !requireStore(w, store) {
+			return
+		}
+		var payload struct {
+			UserID   string `json:"user_id"`
+			Password string `json:"password"` // #nosec G117
+		}
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			http.Error(w, errInvalidPayload, http.StatusBadRequest)
+			return
+		}
+		payload.UserID = strings.TrimSpace(payload.UserID)
+		payload.Password = strings.TrimSpace(payload.Password)
+		user, err := store.VerifyUserPassword(req.Context(), payload.UserID, payload.Password)
+		if err != nil {
+			http.Error(w, "invalid credentials", http.StatusUnauthorized)
+			return
+		}
+		if payload.UserID == user.DisplayName && user.ID != user.DisplayName {
+			user, err = store.UpdateUser(req.Context(), user.ID, user.DisplayName, "")
 			if err != nil {
-				log.Printf("create user failed: %v", err)
-				http.Error(w, "create user failed: "+err.Error(), http.StatusInternalServerError)
+				http.Error(w, errUpdateUserFailed, http.StatusInternalServerError)
 				return
 			}
-			writeJSON(w, http.StatusCreated, user)
+		}
+		issueSession(w, auth, store, user.ID)
+		writeJSON(w, http.StatusOK, user)
+	}
+}
+
+func handleRefresh(store Store, auth AuthConfig) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if !requireStore(w, store) {
+			return
+		}
+		refreshToken := tokenFromCookie(req, "refresh_token")
+		if refreshToken == "" {
+			http.Error(w, "missing refresh token", http.StatusUnauthorized)
+			return
+		}
+		claims := &tokenClaims{}
+		parsed, err := jwt.ParseWithClaims(refreshToken, claims, func(t *jwt.Token) (interface{}, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, errors.New("unexpected signing method")
+			}
+			return auth.RefreshSecret, nil
 		})
+		if err != nil || !parsed.Valid || claims.Subject == "" {
+			http.Error(w, "invalid refresh token", http.StatusUnauthorized)
+			return
+		}
+		stored, err := store.GetRefreshToken(req.Context(), refreshToken)
+		if err != nil || stored.Revoked || stored.ExpiresAt.Before(time.Now()) {
+			http.Error(w, "refresh token expired", http.StatusUnauthorized)
+			return
+		}
+		_ = store.RevokeRefreshToken(req.Context(), refreshToken)
+		issueSession(w, auth, store, claims.Subject)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "refreshed"})
+	}
+}
 
-		ar.Post("/login", func(w http.ResponseWriter, req *http.Request) {
-			if store == nil {
-				http.Error(w, "store not configured", http.StatusServiceUnavailable)
-				return
-			}
-			var payload struct {
-				UserID   string `json:"user_id"`
-				Password string `json:"password"` // #nosec G117
-			}
-			if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-				http.Error(w, "invalid payload", http.StatusBadRequest)
-				return
-			}
-			payload.UserID = strings.TrimSpace(payload.UserID)
-			payload.Password = strings.TrimSpace(payload.Password)
-			user, err := store.VerifyUserPassword(req.Context(), payload.UserID, payload.Password)
-			if err != nil {
-				http.Error(w, "invalid credentials", http.StatusUnauthorized)
-				return
-			}
-			if payload.UserID == user.DisplayName && user.ID != user.DisplayName {
-				user, err = store.UpdateUser(req.Context(), user.ID, user.DisplayName, "")
-				if err != nil {
-					http.Error(w, "update user failed", http.StatusInternalServerError)
-					return
-				}
-			}
-			issueSession(w, auth, store, user.ID)
-			writeJSON(w, http.StatusOK, user)
-		})
-
-		ar.Post("/refresh", func(w http.ResponseWriter, req *http.Request) {
-			if store == nil {
-				http.Error(w, "store not configured", http.StatusServiceUnavailable)
-				return
-			}
-			refreshToken := tokenFromCookie(req, "refresh_token")
-			if refreshToken == "" {
-				http.Error(w, "missing refresh token", http.StatusUnauthorized)
-				return
-			}
-			claims := &tokenClaims{}
-			parsed, err := jwt.ParseWithClaims(refreshToken, claims, func(t *jwt.Token) (interface{}, error) {
-				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, errors.New("unexpected signing method")
-				}
-				return auth.RefreshSecret, nil
-			})
-			if err != nil || !parsed.Valid || claims.Subject == "" {
-				http.Error(w, "invalid refresh token", http.StatusUnauthorized)
-				return
-			}
-
-			stored, err := store.GetRefreshToken(req.Context(), refreshToken)
-			if err != nil || stored.Revoked || stored.ExpiresAt.Before(time.Now()) {
-				http.Error(w, "refresh token expired", http.StatusUnauthorized)
-				return
-			}
-
-			_ = store.RevokeRefreshToken(req.Context(), refreshToken)
-			issueSession(w, auth, store, claims.Subject)
-			writeJSON(w, http.StatusOK, map[string]string{"status": "refreshed"})
-		})
-
-		ar.Post("/logout", func(w http.ResponseWriter, req *http.Request) {
-			if store != nil {
-				if token := tokenFromCookie(req, "refresh_token"); token != "" {
-					_ = store.RevokeRefreshToken(req.Context(), token)
-				}
-			}
-			clearSessionCookies(w, auth)
-			writeJSON(w, http.StatusOK, map[string]string{"status": "logged out"})
-		})
-
-		ar.With(authMiddleware(auth)).Get("/me", func(w http.ResponseWriter, req *http.Request) {
-			userID := userFromContext(req.Context())
-			if userID == "" {
-				http.Error(w, "missing user", http.StatusUnauthorized)
-				return
-			}
-			if store == nil {
-				http.Error(w, "store not configured", http.StatusServiceUnavailable)
-				return
-			}
-			user, err := store.GetUser(req.Context(), userID)
-			if err != nil {
-				http.Error(w, "user not found", http.StatusNotFound)
-				return
-			}
-			writeJSON(w, http.StatusOK, user)
-		})
-
-		ar.With(authMiddleware(auth)).Patch("/me", func(w http.ResponseWriter, req *http.Request) {
-			userID := userFromContext(req.Context())
-			if userID == "" {
-				http.Error(w, "missing user", http.StatusUnauthorized)
-				return
-			}
-			if store == nil {
-				http.Error(w, "store not configured", http.StatusServiceUnavailable)
-				return
-			}
-			var payload struct {
-				DisplayName string `json:"display_name"`
-				Password    string `json:"password"` // #nosec G117
-			}
-			if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-				http.Error(w, "invalid payload", http.StatusBadRequest)
-				return
-			}
-			payload.DisplayName = strings.TrimSpace(payload.DisplayName)
-			payload.Password = strings.TrimSpace(payload.Password)
-			if payload.DisplayName == "" && payload.Password == "" {
-				http.Error(w, "display_name or password required", http.StatusBadRequest)
-				return
-			}
-			user, err := store.UpdateUser(req.Context(), userID, payload.DisplayName, payload.Password)
-			if err != nil {
-				http.Error(w, "update user failed", http.StatusInternalServerError)
-				return
-			}
-			if user.ID != userID {
-				if token := tokenFromCookie(req, "refresh_token"); token != "" {
-					_ = store.RevokeRefreshToken(req.Context(), token)
-				}
-				issueSession(w, auth, store, user.ID)
-			}
-			writeJSON(w, http.StatusOK, user)
-		})
-
-		ar.With(authMiddleware(auth)).Delete("/me", func(w http.ResponseWriter, req *http.Request) {
-			userID := userFromContext(req.Context())
-			if userID == "" {
-				http.Error(w, "missing user", http.StatusUnauthorized)
-				return
-			}
-			if store == nil {
-				http.Error(w, "store not configured", http.StatusServiceUnavailable)
-				return
-			}
+func handleLogout(store Store, auth AuthConfig) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if store != nil {
 			if token := tokenFromCookie(req, "refresh_token"); token != "" {
 				_ = store.RevokeRefreshToken(req.Context(), token)
 			}
-			if err := store.DeleteUser(req.Context(), userID); err != nil {
-				http.Error(w, "delete user failed", http.StatusInternalServerError)
-				return
+		}
+		clearSessionCookies(w, auth)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "logged out"})
+	}
+}
+
+func handleAuthMeGet(store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		userID, ok := requireAuthenticatedUser(w, req)
+		if !ok || !requireStore(w, store) {
+			return
+		}
+		user, err := store.GetUser(req.Context(), userID)
+		if err != nil {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+		writeJSON(w, http.StatusOK, user)
+	}
+}
+
+func handleAuthMePatch(store Store, auth AuthConfig) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		userID, ok := requireAuthenticatedUser(w, req)
+		if !ok || !requireStore(w, store) {
+			return
+		}
+		var payload struct {
+			DisplayName string `json:"display_name"`
+			Password    string `json:"password"` // #nosec G117
+		}
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			http.Error(w, errInvalidPayload, http.StatusBadRequest)
+			return
+		}
+		payload.DisplayName = strings.TrimSpace(payload.DisplayName)
+		payload.Password = strings.TrimSpace(payload.Password)
+		if payload.DisplayName == "" && payload.Password == "" {
+			http.Error(w, "display_name or password required", http.StatusBadRequest)
+			return
+		}
+		user, err := store.UpdateUser(req.Context(), userID, payload.DisplayName, payload.Password)
+		if err != nil {
+			http.Error(w, errUpdateUserFailed, http.StatusInternalServerError)
+			return
+		}
+		if user.ID != userID {
+			if token := tokenFromCookie(req, "refresh_token"); token != "" {
+				_ = store.RevokeRefreshToken(req.Context(), token)
 			}
-			clearSessionCookies(w, auth)
-			writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
-		})
-	})
+			issueSession(w, auth, store, user.ID)
+		}
+		writeJSON(w, http.StatusOK, user)
+	}
+}
 
-	r.Route("/", func(pr chi.Router) {
-		pr.Use(authMiddleware(auth))
+func handleAuthMeDelete(store Store, auth AuthConfig) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		userID, ok := requireAuthenticatedUser(w, req)
+		if !ok || !requireStore(w, store) {
+			return
+		}
+		if token := tokenFromCookie(req, "refresh_token"); token != "" {
+			_ = store.RevokeRefreshToken(req.Context(), token)
+		}
+		if err := store.DeleteUser(req.Context(), userID); err != nil {
+			http.Error(w, "delete user failed", http.StatusInternalServerError)
+			return
+		}
+		clearSessionCookies(w, auth)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+	}
+}
 
-		pr.Post("/publish", func(w http.ResponseWriter, req *http.Request) {
-			subject, err := subjectFromRequest(req)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
+func handlePublish(nc NatsClient, store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		subject, err := subjectFromRequest(req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		body, ok := readPublishBody(w, req)
+		if !ok {
+			return
+		}
+		if err := nc.Publish(subject, body); err != nil {
+			http.Error(w, "publish failed: "+err.Error(), http.StatusBadGateway)
+			return
+		}
+		savePublishedMessage(req.Context(), store, subject, body)
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte("published"))
+	}
+}
 
-			body, err := readBody(w, req)
-			if err != nil {
-				if errors.Is(err, errPayloadTooLarge) {
-					http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
-					return
-				}
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			if len(body) == 0 {
-				body = []byte(`{"msg":"hello from gateway"}`)
-			}
+func handleChannelsList(store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if !requireStore(w, store) {
+			return
+		}
+		channels, err := store.ListChannels(req.Context())
+		if err != nil {
+			log.Printf("list channels failed: %v", err)
+			http.Error(w, "list channels failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, channels)
+	}
+}
 
-			if err := nc.Publish(subject, body); err != nil {
-				http.Error(w, "publish failed: "+err.Error(), http.StatusBadGateway)
-				return
-			}
-			if store != nil {
-				if err := store.SaveMessage(req.Context(), subject, body); err != nil {
-					log.Printf("store message failed: %v", err)
-				}
-			}
-			w.WriteHeader(http.StatusAccepted)
-			_, _ = w.Write([]byte("published"))
-		})
+func handleChannelsCreate(store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if !requireStore(w, store) {
+			return
+		}
+		userID, ok := requireAuthenticatedUser(w, req)
+		if !ok {
+			return
+		}
+		var payload struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil || strings.TrimSpace(payload.Name) == "" {
+			http.Error(w, errInvalidPayload, http.StatusBadRequest)
+			return
+		}
+		if err := store.EnsureUser(req.Context(), userID); err != nil {
+			http.Error(w, "ensure user failed", http.StatusInternalServerError)
+			return
+		}
+		channel, err := store.CreateChannel(req.Context(), payload.Name, userID)
+		if err != nil {
+			log.Printf("create channel failed: %v", err)
+			http.Error(w, "create channel failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		logEnsureMember(req.Context(), store, channel.ID, userID)
+		writeJSON(w, http.StatusCreated, channel)
+	}
+}
 
-		pr.Get("/ws", wsHandler(nc, store, presence))
+func handleChannelMessagesCreate(nc NatsClient, store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		channelID, userID, ok := requireChannelMessageAccess(w, req, store)
+		if !ok {
+			return
+		}
+		payload, ok := readChannelMessagePayload(w, req)
+		if !ok {
+			return
+		}
+		msg, err := store.SaveChannelMessage(req.Context(), channelID, userID, payload)
+		if err != nil {
+			log.Printf("save message failed: %v", err)
+			http.Error(w, "save message failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := nc.Publish(msg.Subject, payload); err != nil {
+			log.Printf("nats publish failed: %v", err)
+		}
+		writeJSON(w, http.StatusCreated, msg)
+	}
+}
 
-		pr.Route("/channels", func(cr chi.Router) {
-			cr.Get("/", func(w http.ResponseWriter, req *http.Request) {
-				if store == nil {
-					http.Error(w, "store not configured", http.StatusServiceUnavailable)
-					return
-				}
-				channels, err := store.ListChannels(req.Context())
-				if err != nil {
-					log.Printf("list channels failed: %v", err)
-					http.Error(w, "list channels failed: "+err.Error(), http.StatusInternalServerError)
-					return
-				}
-				writeJSON(w, http.StatusOK, channels)
-			})
+func handleChannelMessagesList(store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if !requireStore(w, store) {
+			return
+		}
+		channelID, err := parseChannelID(chi.URLParam(req, "id"))
+		if err != nil {
+			http.Error(w, errInvalidChannelID, http.StatusBadRequest)
+			return
+		}
+		limit := clamp(envIntFromQuery(req, "limit", 50), 1, 200)
+		items, err := store.ListMessages(req.Context(), channelID, limit)
+		if err != nil {
+			log.Printf("list messages failed: %v", err)
+			http.Error(w, "list messages failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	}
+}
 
-			cr.Post("/", func(w http.ResponseWriter, req *http.Request) {
-				if store == nil {
-					http.Error(w, "store not configured", http.StatusServiceUnavailable)
-					return
-				}
-				userID := userFromContext(req.Context())
-				if userID == "" {
-					http.Error(w, "missing user", http.StatusUnauthorized)
-					return
-				}
-				var payload struct {
-					Name string `json:"name"`
-				}
-				if err := json.NewDecoder(req.Body).Decode(&payload); err != nil || strings.TrimSpace(payload.Name) == "" {
-					http.Error(w, "invalid payload", http.StatusBadRequest)
-					return
-				}
+func handleUsersList(store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if !requireStore(w, store) {
+			return
+		}
+		users, err := store.ListUsers(req.Context())
+		if err != nil {
+			http.Error(w, "list users failed", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, users)
+	}
+}
 
-				if err := store.EnsureUser(req.Context(), userID); err != nil {
-					http.Error(w, "ensure user failed", http.StatusInternalServerError)
-					return
-				}
-				channel, err := store.CreateChannel(req.Context(), payload.Name, userID)
-				if err != nil {
-					log.Printf("create channel failed: %v", err)
-					http.Error(w, "create channel failed: "+err.Error(), http.StatusInternalServerError)
-					return
-				}
-				if err := store.EnsureMember(req.Context(), channel.ID, userID); err != nil {
-					log.Printf("ensure member failed: %v", err)
-				}
-				writeJSON(w, http.StatusCreated, channel)
-			})
+func handleUsersGet(store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if !requireStore(w, store) {
+			return
+		}
+		user, err := store.GetUser(req.Context(), chi.URLParam(req, "id"))
+		if err != nil {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+		writeJSON(w, http.StatusOK, user)
+	}
+}
 
-			cr.Route("/{id}", func(ir chi.Router) {
-				ir.Post("/messages", func(w http.ResponseWriter, req *http.Request) {
-					if store == nil {
-						http.Error(w, "store not configured", http.StatusServiceUnavailable)
-						return
-					}
-					channelID, err := parseID(chi.URLParam(req, "id"))
-					if err != nil {
-						http.Error(w, "invalid channel id", http.StatusBadRequest)
-						return
-					}
-					userID := userFromContext(req.Context())
-					if userID == "" {
-						http.Error(w, "missing user", http.StatusUnauthorized)
-						return
-					}
-					if err := store.EnsureUser(req.Context(), userID); err != nil {
-						http.Error(w, "ensure user failed", http.StatusInternalServerError)
-						return
-					}
-					if err := store.EnsureMember(req.Context(), channelID, userID); err != nil {
-						log.Printf("ensure member failed: %v", err)
-					}
+func handleUsersCreate(store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if !requireStore(w, store) {
+			return
+		}
+		var payload struct {
+			UserID      string `json:"user_id"`
+			Password    string `json:"password"` // #nosec G117
+			DisplayName string `json:"display_name"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			http.Error(w, errInvalidPayload, http.StatusBadRequest)
+			return
+		}
+		payload.UserID = strings.TrimSpace(payload.UserID)
+		payload.Password = strings.TrimSpace(payload.Password)
+		if payload.UserID == "" || payload.Password == "" {
+			http.Error(w, "user_id and password required", http.StatusBadRequest)
+			return
+		}
+		user, err := store.CreateUser(req.Context(), payload.UserID, payload.Password, payload.DisplayName)
+		if err != nil {
+			http.Error(w, "create user failed", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusCreated, user)
+	}
+}
 
-					payload, err := readMessagePayload(req)
-					if err != nil {
-						if errors.Is(err, errPayloadTooLarge) {
-							http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
-							return
-						}
-						http.Error(w, err.Error(), http.StatusBadRequest)
-						return
-					}
-					msg, err := store.SaveChannelMessage(req.Context(), channelID, userID, payload)
-					if err != nil {
-						log.Printf("save message failed: %v", err)
-						http.Error(w, "save message failed: "+err.Error(), http.StatusInternalServerError)
-						return
-					}
-					if err := nc.Publish(msg.Subject, payload); err != nil {
-						log.Printf("nats publish failed: %v", err)
-					}
-					writeJSON(w, http.StatusCreated, msg)
-				})
+func handleUsersPatch(store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if !requireStore(w, store) {
+			return
+		}
+		targetID := chi.URLParam(req, "id")
+		userID, ok := requireAuthenticatedUser(w, req)
+		if !ok {
+			return
+		}
+		if userID != targetID {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		var payload struct {
+			DisplayName string `json:"display_name"`
+			Password    string `json:"password"` // #nosec G117
+		}
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			http.Error(w, errInvalidPayload, http.StatusBadRequest)
+			return
+		}
+		user, err := store.UpdateUser(req.Context(), targetID, payload.DisplayName, payload.Password)
+		if err != nil {
+			http.Error(w, errUpdateUserFailed, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, user)
+	}
+}
 
-				ir.Get("/messages", func(w http.ResponseWriter, req *http.Request) {
-					if store == nil {
-						http.Error(w, "store not configured", http.StatusServiceUnavailable)
-						return
-					}
-					channelID, err := parseID(chi.URLParam(req, "id"))
-					if err != nil {
-						http.Error(w, "invalid channel id", http.StatusBadRequest)
-						return
-					}
-					limit := clamp(envIntFromQuery(req, "limit", 50), 1, 200)
-					items, err := store.ListMessages(req.Context(), channelID, limit)
-					if err != nil {
-						log.Printf("list messages failed: %v", err)
-						http.Error(w, "list messages failed: "+err.Error(), http.StatusInternalServerError)
-						return
-					}
-					writeJSON(w, http.StatusOK, items)
-				})
-			})
-		})
-
-		pr.Route("/users", func(ur chi.Router) {
-			ur.Get("/", func(w http.ResponseWriter, req *http.Request) {
-				if store == nil {
-					http.Error(w, "store not configured", http.StatusServiceUnavailable)
-					return
-				}
-				users, err := store.ListUsers(req.Context())
-				if err != nil {
-					http.Error(w, "list users failed", http.StatusInternalServerError)
-					return
-				}
-				writeJSON(w, http.StatusOK, users)
-			})
-
-			ur.Get("/{id}", func(w http.ResponseWriter, req *http.Request) {
-				if store == nil {
-					http.Error(w, "store not configured", http.StatusServiceUnavailable)
-					return
-				}
-				user, err := store.GetUser(req.Context(), chi.URLParam(req, "id"))
-				if err != nil {
-					http.Error(w, "user not found", http.StatusNotFound)
-					return
-				}
-				writeJSON(w, http.StatusOK, user)
-			})
-
-			ur.Post("/", func(w http.ResponseWriter, req *http.Request) {
-				if store == nil {
-					http.Error(w, "store not configured", http.StatusServiceUnavailable)
-					return
-				}
-				var payload struct {
-					UserID      string `json:"user_id"`
-					Password    string `json:"password"` // #nosec G117
-					DisplayName string `json:"display_name"`
-				}
-				if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-					http.Error(w, "invalid payload", http.StatusBadRequest)
-					return
-				}
-				payload.UserID = strings.TrimSpace(payload.UserID)
-				payload.Password = strings.TrimSpace(payload.Password)
-				if payload.UserID == "" || payload.Password == "" {
-					http.Error(w, "user_id and password required", http.StatusBadRequest)
-					return
-				}
-				user, err := store.CreateUser(req.Context(), payload.UserID, payload.Password, payload.DisplayName)
-				if err != nil {
-					http.Error(w, "create user failed", http.StatusInternalServerError)
-					return
-				}
-				writeJSON(w, http.StatusCreated, user)
-			})
-
-			ur.Patch("/{id}", func(w http.ResponseWriter, req *http.Request) {
-				if store == nil {
-					http.Error(w, "store not configured", http.StatusServiceUnavailable)
-					return
-				}
-				targetID := chi.URLParam(req, "id")
-				userID := userFromContext(req.Context())
-				if userID == "" || userID != targetID {
-					http.Error(w, "forbidden", http.StatusForbidden)
-					return
-				}
-				var payload struct {
-					DisplayName string `json:"display_name"`
-					Password    string `json:"password"` // #nosec G117
-				}
-				if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-					http.Error(w, "invalid payload", http.StatusBadRequest)
-					return
-				}
-				user, err := store.UpdateUser(req.Context(), targetID, payload.DisplayName, payload.Password)
-				if err != nil {
-					http.Error(w, "update user failed", http.StatusInternalServerError)
-					return
-				}
-				writeJSON(w, http.StatusOK, user)
-			})
-
-			ur.Delete("/{id}", func(w http.ResponseWriter, req *http.Request) {
-				if store == nil {
-					http.Error(w, "store not configured", http.StatusServiceUnavailable)
-					return
-				}
-				targetID := chi.URLParam(req, "id")
-				userID := userFromContext(req.Context())
-				if userID == "" || userID != targetID {
-					http.Error(w, "forbidden", http.StatusForbidden)
-					return
-				}
-				if err := store.DeleteUser(req.Context(), targetID); err != nil {
-					http.Error(w, "delete user failed", http.StatusInternalServerError)
-					return
-				}
-				writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
-			})
-		})
-	})
-
-	return r
+func handleUsersDelete(store Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if !requireStore(w, store) {
+			return
+		}
+		targetID := chi.URLParam(req, "id")
+		userID, ok := requireAuthenticatedUser(w, req)
+		if !ok {
+			return
+		}
+		if userID != targetID {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		if err := store.DeleteUser(req.Context(), targetID); err != nil {
+			http.Error(w, "delete user failed", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+	}
 }
 
 func wsHandler(nc NatsClient, store Store, presence Presence) http.HandlerFunc {
@@ -787,25 +811,8 @@ func wsHandler(nc NatsClient, store Store, presence Presence) http.HandlerFunc {
 		defer cancel()
 
 		userID := userFromContext(req.Context())
-		if store != nil && channelID != 0 && userID != "" {
-			if err := store.EnsureUser(ctx, userID); err != nil {
-				log.Printf("ensure user failed: %v", err)
-			}
-			if err := store.EnsureMember(ctx, channelID, userID); err != nil {
-				log.Printf("ensure member failed: %v", err)
-			}
-		}
-
-		if presence != nil && channelID != 0 {
-			if err := presence.Incr(ctx, presenceKey(channelID)); err != nil {
-				log.Printf("presence incr failed: %v", err)
-			}
-			defer func() {
-				if err := presence.Decr(context.Background(), presenceKey(channelID)); err != nil {
-					log.Printf("presence decr failed: %v", err)
-				}
-			}()
-		}
+		ensureWSUserMembership(ctx, store, channelID, userID)
+		defer trackWSPresence(ctx, presence, channelID)()
 
 		ch := make(chan *nats.Msg, 256)
 		sub, err := nc.ChanSubscribe(subject, ch)
@@ -818,72 +825,217 @@ func wsHandler(nc NatsClient, store Store, presence Presence) http.HandlerFunc {
 			close(ch)
 		}()
 
-		conn.SetReadLimit(maxBodyBytes)
-		if err := conn.SetReadDeadline(time.Now().Add(90 * time.Second)); err != nil {
-			log.Printf("ws read deadline failed: %v", err)
+		if err := configureWSConnection(conn); err != nil {
 			return
 		}
-		conn.SetPongHandler(func(string) error {
-			if err := conn.SetReadDeadline(time.Now().Add(90 * time.Second)); err != nil {
-				log.Printf("ws pong deadline failed: %v", err)
-				return err
-			}
-			return nil
+
+		done := startWSWriter(ctx, conn, ch)
+		readWSMessages(cancel, conn, wsMessageSink{
+			nc:        nc,
+			store:     store,
+			subject:   subject,
+			channelID: channelID,
+			userID:    userID,
 		})
-
-		done := make(chan struct{})
-		pingTicker := time.NewTicker(30 * time.Second)
-		go func() {
-			defer close(done)
-			defer pingTicker.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-pingTicker.C:
-					_ = conn.WriteControl(websocket.PingMessage, []byte("ping"), time.Now().Add(5*time.Second))
-				case msg, ok := <-ch:
-					if !ok {
-						return
-					}
-					if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
-						log.Printf("ws write deadline failed: %v", err)
-						return
-					}
-					if err := conn.WriteMessage(websocket.TextMessage, msg.Data); err != nil {
-						return
-					}
-				}
-			}
-		}()
-
-		for {
-			_, message, err := conn.ReadMessage()
-			if err != nil {
-				cancel()
-				break
-			}
-			if len(message) == 0 {
-				continue
-			}
-			if err := nc.Publish(subject, message); err != nil {
-				log.Printf("ws publish failed: %v", err)
-			}
-			if store != nil && channelID != 0 && userID != "" {
-				// We copy the message because the original slice might be reused by the websocket reader
-				msgCopy := make([]byte, len(message))
-				copy(msgCopy, message)
-				select {
-				case asyncTaskQueue <- asyncTask{taskType: taskSaveMessage, channelID: channelID, userID: userID, payload: msgCopy}:
-					metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
-				default:
-					log.Printf("async task queue full, dropping message from %s", sanitize(userID)) // #nosec G706
-				}
-			}
-		}
 
 		<-done
 	}
+}
+
+func ensureWSUserMembership(ctx context.Context, store Store, channelID int64, userID string) {
+	if store == nil || channelID == 0 || userID == "" {
+		return
+	}
+	if err := store.EnsureUser(ctx, userID); err != nil {
+		log.Printf("ensure user failed: %v", err)
+	}
+	logEnsureMember(ctx, store, channelID, userID)
+}
+
+func trackWSPresence(ctx context.Context, presence Presence, channelID int64) func() {
+	if presence == nil || channelID == 0 {
+		return noopCleanup
+	}
+	key := presenceKey(channelID)
+	if err := presence.Incr(ctx, key); err != nil {
+		log.Printf("presence incr failed: %v", err)
+	}
+	return func() {
+		if err := presence.Decr(context.Background(), key); err != nil {
+			log.Printf("presence decr failed: %v", err)
+		}
+	}
+}
+
+func configureWSConnection(conn *websocket.Conn) error {
+	conn.SetReadLimit(maxBodyBytes)
+	if err := conn.SetReadDeadline(time.Now().Add(90 * time.Second)); err != nil {
+		log.Printf("ws read deadline failed: %v", err)
+		return err
+	}
+	conn.SetPongHandler(func(string) error {
+		if err := conn.SetReadDeadline(time.Now().Add(90 * time.Second)); err != nil {
+			log.Printf("ws pong deadline failed: %v", err)
+			return err
+		}
+		return nil
+	})
+	return nil
+}
+
+func startWSWriter(ctx context.Context, conn *websocket.Conn, ch <-chan *nats.Msg) <-chan struct{} {
+	done := make(chan struct{})
+	pingTicker := time.NewTicker(30 * time.Second)
+	go func() {
+		defer close(done)
+		defer pingTicker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-pingTicker.C:
+				_ = conn.WriteControl(websocket.PingMessage, []byte("ping"), time.Now().Add(5*time.Second))
+			case msg, ok := <-ch:
+				if !ok {
+					return
+				}
+				if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+					log.Printf("ws write deadline failed: %v", err)
+					return
+				}
+				if err := conn.WriteMessage(websocket.TextMessage, msg.Data); err != nil {
+					return
+				}
+			}
+		}
+	}()
+	return done
+}
+
+type wsMessageSink struct {
+	nc        NatsClient
+	store     Store
+	subject   string
+	channelID int64
+	userID    string
+}
+
+func readWSMessages(cancel context.CancelFunc, conn *websocket.Conn, sink wsMessageSink) {
+	defer cancel()
+	for {
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if len(message) == 0 {
+			continue
+		}
+		if err := sink.nc.Publish(sink.subject, message); err != nil {
+			log.Printf("ws publish failed: %v", err)
+		}
+		queueWSMessageSave(sink.store, sink.channelID, sink.userID, message)
+	}
+}
+
+func queueWSMessageSave(store Store, channelID int64, userID string, message []byte) {
+	if store == nil || channelID == 0 || userID == "" {
+		return
+	}
+	// We copy the message because the original slice might be reused by the websocket reader.
+	msgCopy := make([]byte, len(message))
+	copy(msgCopy, message)
+	select {
+	case asyncTaskQueue <- asyncTask{taskType: taskSaveMessage, channelID: channelID, userID: userID, payload: msgCopy}:
+		metricSaveQueueLen.Set(float64(len(asyncTaskQueue)))
+	default:
+		log.Printf("async task queue full, dropping message from %s", sanitize(userID)) // #nosec G706
+	}
+}
+
+func requireStore(w http.ResponseWriter, store Store) bool {
+	if store == nil {
+		http.Error(w, errStoreNotConfigured, http.StatusServiceUnavailable)
+		return false
+	}
+	return true
+}
+
+func requireAuthenticatedUser(w http.ResponseWriter, req *http.Request) (string, bool) {
+	userID := userFromContext(req.Context())
+	if userID == "" {
+		http.Error(w, errMissingUser, http.StatusUnauthorized)
+		return "", false
+	}
+	return userID, true
+}
+
+func parseChannelID(raw string) (int64, error) {
+	return parseID(raw)
+}
+
+func logEnsureMember(ctx context.Context, store Store, channelID int64, userID string) {
+	if err := store.EnsureMember(ctx, channelID, userID); err != nil {
+		log.Printf(logEnsureMemberFailed, err)
+	}
+}
+
+func readPublishBody(w http.ResponseWriter, req *http.Request) ([]byte, bool) {
+	body, err := readBody(w, req)
+	if err != nil {
+		writePayloadError(w, err)
+		return nil, false
+	}
+	if len(body) == 0 {
+		return []byte(`{"msg":"hello from gateway"}`), true
+	}
+	return body, true
+}
+
+func savePublishedMessage(ctx context.Context, store Store, subject string, body []byte) {
+	if store == nil {
+		return
+	}
+	if err := store.SaveMessage(ctx, subject, body); err != nil {
+		log.Printf("store message failed: %v", err)
+	}
+}
+
+func requireChannelMessageAccess(w http.ResponseWriter, req *http.Request, store Store) (int64, string, bool) {
+	if !requireStore(w, store) {
+		return 0, "", false
+	}
+	channelID, err := parseChannelID(chi.URLParam(req, "id"))
+	if err != nil {
+		http.Error(w, errInvalidChannelID, http.StatusBadRequest)
+		return 0, "", false
+	}
+	userID, ok := requireAuthenticatedUser(w, req)
+	if !ok {
+		return 0, "", false
+	}
+	if err := store.EnsureUser(req.Context(), userID); err != nil {
+		http.Error(w, "ensure user failed", http.StatusInternalServerError)
+		return 0, "", false
+	}
+	logEnsureMember(req.Context(), store, channelID, userID)
+	return channelID, userID, true
+}
+
+func readChannelMessagePayload(w http.ResponseWriter, req *http.Request) ([]byte, bool) {
+	payload, err := readMessagePayload(req)
+	if err != nil {
+		writePayloadError(w, err)
+		return nil, false
+	}
+	return payload, true
+}
+
+func writePayloadError(w http.ResponseWriter, err error) {
+	if errors.Is(err, errPayloadTooLarge) {
+		http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+		return
+	}
+	http.Error(w, err.Error(), http.StatusBadRequest)
 }
 
 func authMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
@@ -1033,7 +1185,7 @@ func subjectOrChannel(req *http.Request) (string, int64, error) {
 	if raw := req.URL.Query().Get("channel_id"); raw != "" {
 		id, err := parseID(raw)
 		if err != nil {
-			return "", 0, errors.New("invalid channel id")
+			return "", 0, errors.New(errInvalidChannelID)
 		}
 		return channelSubject(id), id, nil
 	}
