@@ -367,6 +367,13 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 				http.Error(w, "invalid credentials", http.StatusUnauthorized)
 				return
 			}
+			if payload.UserID == user.DisplayName && user.ID != user.DisplayName {
+				user, err = store.UpdateUser(req.Context(), user.ID, user.DisplayName, "")
+				if err != nil {
+					http.Error(w, "update user failed", http.StatusInternalServerError)
+					return
+				}
+			}
 			issueSession(w, auth, store, user.ID)
 			writeJSON(w, http.StatusOK, user)
 		})
@@ -430,6 +437,65 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 				return
 			}
 			writeJSON(w, http.StatusOK, user)
+		})
+
+		ar.With(authMiddleware(auth)).Patch("/me", func(w http.ResponseWriter, req *http.Request) {
+			userID := userFromContext(req.Context())
+			if userID == "" {
+				http.Error(w, "missing user", http.StatusUnauthorized)
+				return
+			}
+			if store == nil {
+				http.Error(w, "store not configured", http.StatusServiceUnavailable)
+				return
+			}
+			var payload struct {
+				DisplayName string `json:"display_name"`
+				Password    string `json:"password"` // #nosec G117
+			}
+			if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+				http.Error(w, "invalid payload", http.StatusBadRequest)
+				return
+			}
+			payload.DisplayName = strings.TrimSpace(payload.DisplayName)
+			payload.Password = strings.TrimSpace(payload.Password)
+			if payload.DisplayName == "" && payload.Password == "" {
+				http.Error(w, "display_name or password required", http.StatusBadRequest)
+				return
+			}
+			user, err := store.UpdateUser(req.Context(), userID, payload.DisplayName, payload.Password)
+			if err != nil {
+				http.Error(w, "update user failed", http.StatusInternalServerError)
+				return
+			}
+			if user.ID != userID {
+				if token := tokenFromCookie(req, "refresh_token"); token != "" {
+					_ = store.RevokeRefreshToken(req.Context(), token)
+				}
+				issueSession(w, auth, store, user.ID)
+			}
+			writeJSON(w, http.StatusOK, user)
+		})
+
+		ar.With(authMiddleware(auth)).Delete("/me", func(w http.ResponseWriter, req *http.Request) {
+			userID := userFromContext(req.Context())
+			if userID == "" {
+				http.Error(w, "missing user", http.StatusUnauthorized)
+				return
+			}
+			if store == nil {
+				http.Error(w, "store not configured", http.StatusServiceUnavailable)
+				return
+			}
+			if token := tokenFromCookie(req, "refresh_token"); token != "" {
+				_ = store.RevokeRefreshToken(req.Context(), token)
+			}
+			if err := store.DeleteUser(req.Context(), userID); err != nil {
+				http.Error(w, "delete user failed", http.StatusInternalServerError)
+				return
+			}
+			clearSessionCookies(w, auth)
+			writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 		})
 	})
 

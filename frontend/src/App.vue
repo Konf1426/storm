@@ -165,6 +165,35 @@
       </div>
 
       <div v-if="authenticated" class="mt-8 grid gap-6 lg:grid-cols-3">
+        <Card class="lg:col-span-3">
+          <CardHeader>
+            <div>
+              <p class="text-sm font-mono uppercase tracking-[0.2em] text-muted-foreground">Account</p>
+              <h3 class="text-xl font-semibold">My profile</h3>
+              <p class="mt-1 text-sm text-muted-foreground">
+                Update your display name, change your password, or delete your account.
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div class="grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
+              <div>
+                <label class="text-sm font-medium text-foreground">Display name</label>
+                <Input v-model="profileDisplayName" placeholder="Your public name" />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-foreground">New password</label>
+                <Input v-model="profilePassword" type="password" placeholder="Leave empty to keep current password" />
+              </div>
+              <div class="flex flex-wrap items-end gap-3">
+                <Button @click="updateProfile">Save profile</Button>
+                <Button variant="outline" @click="logout">Logout</Button>
+                <Button variant="ghost" class="text-red-700 hover:bg-red-50" @click="deleteAccount">Delete account</Button>
+              </div>
+            </div>
+            <p class="mt-3 text-sm text-muted-foreground">{{ profileStatus }}</p>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <p class="text-sm font-mono uppercase tracking-[0.2em] text-muted-foreground">Connection</p>
@@ -230,11 +259,16 @@ const feedRef = ref(null)
 const channels = ref([])
 const selectedChannelId = ref("")
 const newChannelName = ref("")
+const usersById = ref({})
 
 const authenticated = ref(false)
 const currentUser = ref("")
+const currentDisplayName = ref("")
 const loginUser = ref("")
 const loginPassword = ref("")
+const profileDisplayName = ref("")
+const profilePassword = ref("")
+const profileStatus = ref("")
 
 const connectionHint = computed(() =>
   connected.value
@@ -251,8 +285,8 @@ const pushEvent = (text) => {
     id: nextId++,
     time: now.toLocaleTimeString(),
     date: now.toLocaleDateString(),
-    text: parsed.text,
-    own: parsed.author && parsed.author === currentUser.value,
+    text: formatMessageText(parsed.authorId, parsed.message, parsed.fallbackAuthor),
+    own: parsed.authorId && parsed.authorId === currentUser.value,
     bytes: new TextEncoder().encode(text).length,
   }
   const shouldStick = isNearBottom()
@@ -265,6 +299,24 @@ const pushEvent = (text) => {
   pruneWindow()
   if (shouldStick) {
     scrollToBottom()
+  }
+}
+
+const loadUsers = async () => {
+  try {
+    const res = await fetch(`${gatewayUrl.value}/users`, {
+      credentials: "include",
+    })
+    if (!res.ok) {
+      await handleApiError(res)
+      return
+    }
+    const users = await res.json()
+    usersById.value = Object.fromEntries(
+      users.map((user) => [user.id, user.display_name || user.id])
+    )
+  } catch (err) {
+    console.error("Failed to load users", err)
   }
 }
 
@@ -356,7 +408,8 @@ const sendMessage = async () => {
   try {
     let url = `${gatewayUrl.value}/publish?subject=${encodeURIComponent(subject.value)}`
     const payload = {
-      user: currentUser.value || "anonymous",
+      user_id: currentUser.value || "anonymous",
+      user: currentDisplayName.value || currentUser.value || "anonymous",
       message: messageText.value.trim(),
     }
     if (!payload.message) {
@@ -429,8 +482,8 @@ const loadHistory = async () => {
           id: `history-${item.id}`,
           time: new Date(item.created_at).toLocaleTimeString(),
           date: new Date(item.created_at).toLocaleDateString(),
-          text: parsed.text,
-          own: parsed.author && parsed.author === currentUser.value,
+          text: formatMessageText(item.user_id || parsed.authorId, parsed.message, parsed.fallbackAuthor),
+          own: item.user_id && item.user_id === currentUser.value,
           bytes: (item.payload || "").length,
         }
       })
@@ -513,7 +566,11 @@ const login = async () => {
     const user = await res.json()
     authenticated.value = true
     currentUser.value = user.id
+    currentDisplayName.value = user.display_name || user.id
+    profileDisplayName.value = user.display_name || user.id
+    profilePassword.value = ""
     authStatus.value = ""
+    await loadUsers()
     await loadChannels()
     await loadHistory()
     connectStream()
@@ -530,11 +587,90 @@ const logout = async () => {
   })
   authenticated.value = false
   currentUser.value = ""
+  currentDisplayName.value = ""
+  usersById.value = {}
+  profileDisplayName.value = ""
+  profilePassword.value = ""
+  profileStatus.value = ""
   channels.value = []
   messages.value = []
   disconnectStream()
   if (refreshTimer) {
     clearInterval(refreshTimer)
+  }
+}
+
+const updateProfile = async () => {
+  profileStatus.value = "saving..."
+  globalError.value = ""
+  const payload = {}
+  const nextDisplayName = profileDisplayName.value.trim()
+  const nextPassword = profilePassword.value.trim()
+
+  if (nextDisplayName && nextDisplayName !== currentDisplayName.value) {
+    payload.display_name = nextDisplayName
+  }
+  if (nextPassword) {
+    payload.password = nextPassword
+  }
+  if (Object.keys(payload).length === 0) {
+    profileStatus.value = "nothing to update"
+    return
+  }
+
+  try {
+    const previousUserId = currentUser.value
+    const res = await fetch(`${gatewayUrl.value}/auth/me`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      await handleApiError(res)
+      throw new Error("Profile update failed")
+    }
+    const user = await res.json()
+    currentUser.value = user.id
+    currentDisplayName.value = user.display_name || user.id
+    profileDisplayName.value = user.display_name || user.id
+    const nextUsersById = { ...usersById.value }
+    if (previousUserId && previousUserId !== user.id) {
+      delete nextUsersById[previousUserId]
+    }
+    nextUsersById[user.id] = user.display_name || user.id
+    usersById.value = nextUsersById
+    profilePassword.value = ""
+    profileStatus.value = "profile updated"
+    await loadHistory()
+  } catch (err) {
+    profileStatus.value = "update failed"
+  } finally {
+    setTimeout(() => {
+      profileStatus.value = ""
+    }, 2500)
+  }
+}
+
+const deleteAccount = async () => {
+  const confirmed = window.confirm("Delete your account permanently?")
+  if (!confirmed) return
+
+  profileStatus.value = "deleting..."
+  globalError.value = ""
+  try {
+    const res = await fetch(`${gatewayUrl.value}/auth/me`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+    if (!res.ok) {
+      await handleApiError(res)
+      throw new Error("Delete account failed")
+    }
+    await logout()
+    authStatus.value = "account deleted"
+  } catch (err) {
+    profileStatus.value = "delete failed"
   }
 }
 
@@ -576,6 +712,10 @@ const checkSession = async () => {
     const user = await res.json()
     authenticated.value = true
     currentUser.value = user.id
+    currentDisplayName.value = user.display_name || user.id
+    profileDisplayName.value = user.display_name || user.id
+    profilePassword.value = ""
+    await loadUsers()
     await loadChannels()
     await loadHistory()
     connectStream()
@@ -586,16 +726,35 @@ const checkSession = async () => {
 const parseMessage = (raw, fallbackAuthor = "") => {
   try {
     const parsed = JSON.parse(raw)
-    if (parsed && parsed.user && parsed.message) {
+    if (parsed && parsed.message) {
       return {
-        text: `${parsed.user} : ${parsed.message}`,
-        author: parsed.user,
+        authorId: parsed.user_id || fallbackAuthor || "",
+        fallbackAuthor: parsed.user || fallbackAuthor || "",
+        message: parsed.message,
       }
     }
   } catch {
     // ignore
   }
-  return { text: raw, author: fallbackAuthor }
+  return {
+    authorId: fallbackAuthor || "",
+    fallbackAuthor: fallbackAuthor || "",
+    message: raw,
+  }
+}
+
+const resolveDisplayName = (userId, fallbackAuthor = "") => {
+  if (userId && usersById.value[userId]) {
+    return usersById.value[userId]
+  }
+  if (userId === currentUser.value) {
+    return currentDisplayName.value || currentUser.value
+  }
+  return fallbackAuthor || userId || "unknown"
+}
+
+const formatMessageText = (userId, message, fallbackAuthor = "") => {
+  return `${resolveDisplayName(userId, fallbackAuthor)} : ${message}`
 }
 
 const scrollToBottom = () => {
