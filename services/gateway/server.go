@@ -93,7 +93,6 @@ func StartWorkerPool(ctx context.Context, store Store, numWorkers int) {
 	}
 }
 
-
 const (
 	defaultSubject = "storm.events"
 	maxBodyBytes   = 1 << 20
@@ -220,6 +219,12 @@ type AuthConfig struct {
 	CookieDomain  string
 	CookieSecure  bool
 	CorsOrigin    string
+}
+
+type tokenClaims struct {
+	jwt.RegisteredClaims
+	NoSnif     bool   `json:"nosnif"`
+	URLDomaine string `json:"urldomaine,omitempty"`
 }
 
 // Channel model.
@@ -376,7 +381,7 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 				http.Error(w, "missing refresh token", http.StatusUnauthorized)
 				return
 			}
-			claims := &jwt.RegisteredClaims{}
+			claims := &tokenClaims{}
 			parsed, err := jwt.ParseWithClaims(refreshToken, claims, func(t *jwt.Token) (interface{}, error) {
 				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, errors.New("unexpected signing method")
@@ -463,8 +468,6 @@ func NewRouter(nc NatsClient, store Store, presence Presence, auth AuthConfig) h
 			w.WriteHeader(http.StatusAccepted)
 			_, _ = w.Write([]byte("published"))
 		})
-
-
 
 		pr.Get("/ws", wsHandler(nc, store, presence))
 
@@ -829,7 +832,7 @@ func authMiddleware(cfg AuthConfig) func(http.Handler) http.Handler {
 				return
 			}
 
-			claims := &jwt.RegisteredClaims{}
+			claims := &tokenClaims{}
 			parsed, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
 				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, errors.New("unexpected signing method")
@@ -878,8 +881,8 @@ func tokenFromCookie(req *http.Request, name string) string {
 }
 
 func issueSession(w http.ResponseWriter, cfg AuthConfig, store Store, userID string) {
-	accessToken, accessExp := signToken(cfg.Secret, userID, cfg.AccessTTL)
-	refreshToken, refreshExp := signToken(cfg.RefreshSecret, userID, cfg.RefreshTTL)
+	accessToken, accessExp := signToken(cfg, cfg.Secret, userID, cfg.AccessTTL)
+	refreshToken, refreshExp := signToken(cfg, cfg.RefreshSecret, userID, cfg.RefreshTTL)
 
 	if store != nil {
 		if testMode {
@@ -905,12 +908,20 @@ func issueSession(w http.ResponseWriter, cfg AuthConfig, store Store, userID str
 	setCookie(w, "refresh_token", refreshToken, refreshExp, cfg)
 }
 
-func signToken(secret []byte, userID string, ttl time.Duration) (string, time.Time) {
+func signToken(cfg AuthConfig, secret []byte, userID string, ttl time.Duration) (string, time.Time) {
 	exp := time.Now().Add(ttl)
-	claims := jwt.RegisteredClaims{
-		Subject:   userID,
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(exp),
+	urlDomaine := cfg.CookieDomain
+	if urlDomaine == "" {
+		urlDomaine = cfg.CorsOrigin
+	}
+	claims := tokenClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID,
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(exp),
+		},
+		NoSnif:     true,
+		URLDomaine: urlDomaine,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signed, err := token.SignedString(secret)
@@ -1024,8 +1035,6 @@ func clamp(val, min, max int) int {
 	}
 	return val
 }
-
-
 
 func readBody(w http.ResponseWriter, req *http.Request) ([]byte, error) {
 	if w != nil {
