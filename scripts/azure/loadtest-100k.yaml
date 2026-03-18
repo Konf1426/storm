@@ -1,0 +1,33 @@
+version: v0.1
+testId: storm-ws-100k
+displayName: STORM WebSocket 100k
+description: Hold up to 100000 simultaneous WebSocket connections against the STORM gateway.
+testPlan: locustfile.py
+testType: Locust
+engineInstances: 10
+configurationFiles:
+  - requirements.txt
+autoStop:
+  errorPercentage: 90
+  timeWindow: 60
+env:
+  - name: TARGET_HOST
+    value: http://51.138.200.66:8080
+  - name: ACCESS_TOKEN
+    value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMTljZmMyYi0yZDk2LTczZGMtYjIxNy0wN2JmOGYxOThjOWMiLCJ1c2VybmFtZSI6ImRldnN0b3JtIiwianRpIjoiMDE5Y2ZjM2ItNjk4MC03MjA4LWI5MmQtNWQ4YjJjNjE4NDM2IiwiaWF0IjoxNzczNzU4Mjc4LCJleHAiOjE3NzM3NTkxNzh9.ENoQB7FjWpxo_mBjx6-FeQBK11Fwp15PpkBVJWik15U
+  - name: WS_SUBJECT
+    value: storm.events
+  - name: LOCUST_USERS
+    value: 5000
+  - name: LOCUST_SPAWN_RATE
+    value: 250
+  - name: LOCUST_RUN_TIME
+    value: 1800
+  - name: WS_CONNECTION_HOLD_SECONDS
+    value: 1800
+  - name: WS_PING_INTERVAL_SECONDS
+    value: 25
+  - name: WS_MESSAGE_INTERVAL_SECONDS
+    value: 0
+  - name: VERIFY_TLS
+    value: "true"

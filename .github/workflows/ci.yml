@@ -41,6 +41,76 @@ jobs:
           cd services/gateway
           gosec ./...
 
+  sonarqube:
+    name: SonarQube Scan
+    runs-on: ubuntu-latest
+    services:
+      sonarqube:
+        image: sonarqube:community
+        ports:
+          - 9000:9000
+        env:
+          SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Wait for SonarQube
+        shell: bash
+        run: |
+          for i in {1..90}; do
+            status="$(curl -fsS http://localhost:9000/api/system/status | jq -r '.status' 2>/dev/null || true)"
+            if [ "$status" = "UP" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "SonarQube did not become ready on http://localhost:9000" >&2
+          exit 1
+
+      - name: Create SonarQube token
+        id: sonar_token
+        shell: bash
+        run: |
+          token_json="$(curl -fsS -u admin:admin -X POST "http://localhost:9000/api/user_tokens/generate?name=github-ci")"
+          token="$(echo "$token_json" | jq -r '.token')"
+          if [ -z "$token" ] || [ "$token" = "null" ]; then
+            echo "Failed to generate SonarQube token" >&2
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Go coverage reports
+        shell: bash
+        run: |
+          mkdir -p .sonar
+          go test ./services/gateway/... -coverprofile .sonar/coverage-gateway.out
+          go test ./services/messages/... -coverprofile .sonar/coverage-messages.out
+
+      - name: Run Sonar Scanner
+        env:
+          SONAR_HOST_URL: http://localhost:9000
+          SONAR_TOKEN: ${{ steps.sonar_token.outputs.token }}
+        run: |
+          docker run --rm \
+            --network host \
+            -e SONAR_HOST_URL \
+            -e SONAR_TOKEN \
+            -v "${{ github.workspace }}:/usr/src" \
+            sonarsource/sonar-scanner-cli
+
+      - name: Change default admin password
+        if: always()
+        shell: bash
+        run: |
+          curl -fsS -u admin:admin -X POST \
+            "http://localhost:9000/api/users/change_password?login=admin&previousPassword=admin&password=${GITHUB_RUN_ID}-done" >/dev/null || true
+
   docker:
     name: Docker Build & Scan
     runs-on: ubuntu-latest
