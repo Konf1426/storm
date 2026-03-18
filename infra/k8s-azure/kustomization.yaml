@@ -1,10 +1,10 @@
 # Kustomize overlay for Azure AKS deployment.
-# Uses the base K8s manifests but excludes Postgres/Redis (managed by Azure).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 namespace: storm
 
+# Resources are listed individually because of path restrictions
 resources:
   - ../k8s/namespace.yaml
   - ../k8s/rbac.yaml
@@ -20,19 +20,16 @@ resources:
   - secret-azure.yaml
   - configmap-azure.yaml
 
-# NOTE: postgres.yaml and redis.yaml are NOT included:
-# PostgreSQL and Redis are Azure managed services.
-
+# Re-specify images to ensure they point to ACR
 images:
   - name: storm-gateway
-    newName: REPLACE_WITH_ACR.azurecr.io/storm-gateway
+    newName: stormacrawgffq.azurecr.io/storm-gateway
     newTag: latest
   - name: storm-messages
-    newName: REPLACE_WITH_ACR.azurecr.io/storm-messages
+    newName: stormacrawgffq.azurecr.io/storm-messages
     newTag: latest
 
 patches:
-  # Increase gateway replicas for load testing
   - target:
       kind: Deployment
       name: gateway

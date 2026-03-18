@@ -23,23 +23,26 @@ spec:
           type: RuntimeDefault
       containers:
         - name: messages
-          image: storm-messages:latest
+          image: stormacrawgffq.azurecr.io/storm-messages:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
             - containerPort: 6061
+          volumeMounts:
+            - name: tmp-dir
+              mountPath: /tmp
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: false
             capabilities:
               drop: ["ALL"]
           resources:
             requests:
-              cpu: "50m"
-              memory: "64Mi"
+              cpu: "100m"
+              memory: "128Mi"
             limits:
-              cpu: "250m"
-              memory: "256Mi"
+              cpu: "500m"
+              memory: "512Mi"
           env:
             - name: NATS_URL
               valueFrom:
@@ -73,6 +76,9 @@ spec:
               port: 8081
             initialDelaySeconds: 5
             periodSeconds: 5
+      volumes:
+        - name: tmp-dir
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

@@ -5,13 +5,13 @@
 variable "location" {
   type        = string
   description = "Azure region"
-  default     = "francecentral"
+  default     = "westeurope"
 }
 
 variable "resource_group_name" {
   type        = string
   description = "Resource group name"
-  default     = "rg-storm"
+  default     = "rg-storm-v5"
 }
 
 # ─── AKS ──────────────────────────────────────
@@ -19,13 +19,13 @@ variable "resource_group_name" {
 variable "aks_node_count" {
   type        = number
   description = "Initial AKS node count"
-  default     = 3
+  default     = 1
 }
 
 variable "aks_min_count" {
   type        = number
   description = "AKS autoscaler min nodes"
-  default     = 3
+  default     = 1
 }
 
 variable "aks_max_count" {
@@ -37,13 +37,13 @@ variable "aks_max_count" {
 variable "aks_vm_size" {
   type        = string
   description = "AKS node VM size (4 vCPU / 16 GB recommended for 100k WS)"
-  default     = "Standard_D4s_v5"
+  default     = "Standard_B2s"
 }
 
 variable "kubernetes_version" {
   type        = string
   description = "AKS Kubernetes version"
-  default     = "1.29"
+  default     = "1.31"
 }
 
 # ─── Database ─────────────────────────────────
@@ -89,7 +89,7 @@ variable "db_name" {
 variable "redis_sku" {
   type        = string
   description = "Redis SKU (Basic, Standard, Premium)"
-  default     = "Standard"
+  default     = "Basic"
 }
 
 variable "redis_family" {
@@ -101,7 +101,7 @@ variable "redis_family" {
 variable "redis_capacity" {
   type        = number
   description = "Redis cache size (0=250MB, 1=1GB, 2=2.5GB)"
-  default     = 1
+  default     = 0
 }
 
 # ─── Secrets ──────────────────────────────────

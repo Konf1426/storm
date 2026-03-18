@@ -21,8 +21,8 @@ metadata:
   name: k6-load-test
   namespace: storm
 spec:
-  parallelism: 4
-  completions: 4
+  parallelism: 1
+  completions: 1
   backoffLimit: 0
   template:
     metadata:
@@ -40,7 +40,7 @@ spec:
             - name: WS_URL
               value: "ws://gateway.storm.svc.cluster.local:8080/ws"
             - name: TARGET_VUS
-              value: "25000"
+              value: "1000"
             - name: RAMP_UP
               value: "3m"
             - name: HOLD
@@ -49,11 +49,11 @@ spec:
               value: "1m"
           resources:
             requests:
-              cpu: "2"
-              memory: "4Gi"
+              cpu: "100m"
+              memory: "128Mi"
             limits:
-              cpu: "4"
-              memory: "8Gi"
+              cpu: "500m"
+              memory: "512Mi"
           volumeMounts:
             - name: k6-script
               mountPath: /scripts

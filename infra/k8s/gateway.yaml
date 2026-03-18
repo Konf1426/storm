@@ -23,23 +23,26 @@ spec:
           type: RuntimeDefault
       containers:
         - name: gateway
-          image: storm-gateway:latest
+          image: stormacrawgffq.azurecr.io/storm-gateway:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
             - containerPort: 6060
+          volumeMounts:
+            - name: tmp-dir
+              mountPath: /tmp
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: false
             capabilities:
               drop: ["ALL"]
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: "200m"
+              memory: "256Mi"
             limits:
-              cpu: "500m"
-              memory: "512Mi"
+              cpu: "1"
+              memory: "1Gi"
           env:
             - name: NATS_URL
               valueFrom:
@@ -93,6 +96,9 @@ spec:
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5
+      volumes:
+        - name: tmp-dir
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

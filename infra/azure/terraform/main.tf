@@ -170,7 +170,6 @@ resource "azurerm_kubernetes_cluster" "main" {
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   dns_prefix          = "storm"
-  kubernetes_version  = var.kubernetes_version
 
   default_node_pool {
     name                = "default"
@@ -236,10 +235,12 @@ resource "azurerm_postgresql_flexible_server" "main" {
   private_dns_zone_id    = azurerm_private_dns_zone.pg.id
   administrator_login    = var.db_admin_user
   administrator_password = var.db_admin_password
-  zone                   = "1"
 
   storage_mb = var.db_storage_mb
   sku_name   = var.db_sku
+
+  # Disable public access when using delegated subnets
+  public_network_access_enabled = false
 
   depends_on = [azurerm_private_dns_zone_virtual_network_link.pg]
   tags       = var.tags
