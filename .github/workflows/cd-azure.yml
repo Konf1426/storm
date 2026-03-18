@@ -1,0 +1,125 @@
+# Deploy STORM to Azure AKS.
+# Triggered manually via workflow_dispatch.
+name: CD - Azure AKS
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_vus:
+        description: 'Target VUs per k6 pod (×4 pods)'
+        required: false
+        default: '25000'
+      run_load_test:
+        description: 'Run load test after deploy?'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+env:
+  RESOURCE_GROUP: rg-storm
+  AKS_CLUSTER: storm-aks
+  ACR_NAME: stormacr
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get ACR login server
+        id: acr
+        run: |
+          SERVER=$(az acr show --name ${{ env.ACR_NAME }} --query loginServer -o tsv)
+          echo "server=$SERVER" >> $GITHUB_OUTPUT
+
+      - name: Build & Push Gateway
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
+          docker build -t ${{ steps.acr.outputs.server }}/storm-gateway:${{ github.sha }} \
+            -f services/gateway/Dockerfile services/gateway
+          docker push ${{ steps.acr.outputs.server }}/storm-gateway:${{ github.sha }}
+          docker tag ${{ steps.acr.outputs.server }}/storm-gateway:${{ github.sha }} \
+            ${{ steps.acr.outputs.server }}/storm-gateway:latest
+          docker push ${{ steps.acr.outputs.server }}/storm-gateway:latest
+
+      - name: Build & Push Messages
+        run: |
+          docker build -t ${{ steps.acr.outputs.server }}/storm-messages:${{ github.sha }} \
+            -f services/messages/Dockerfile services/messages
+          docker push ${{ steps.acr.outputs.server }}/storm-messages:${{ github.sha }}
+          docker tag ${{ steps.acr.outputs.server }}/storm-messages:${{ github.sha }} \
+            ${{ steps.acr.outputs.server }}/storm-messages:latest
+          docker push ${{ steps.acr.outputs.server }}/storm-messages:latest
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name ${{ env.AKS_CLUSTER }} --overwrite-existing
+
+      - name: Update kustomization images
+        run: |
+          cd infra/k8s-azure
+          sed -i "s|REPLACE_WITH_ACR.azurecr.io|${{ steps.acr.outputs.server }}|g" kustomization.yaml
+
+      - name: Deploy to AKS
+        run: |
+          kubectl create configmap k6-script \
+            --from-file=storm-azure.js=scripts/k6/storm-azure.js \
+            -n storm --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -k infra/k8s-azure
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/gateway -n storm --timeout=180s
+
+      - name: Smoke test
+        run: |
+          kubectl port-forward svc/gateway 8080:8080 -n storm &
+          sleep 5
+          curl -fsS http://localhost:8080/healthz
+          echo "✅ Health check passed"
+
+  load-test:
+    needs: deploy
+    if: ${{ github.event.inputs.run_load_test == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name ${{ env.AKS_CLUSTER }} --overwrite-existing
+
+      - name: Delete previous job
+        run: kubectl delete job k6-load-test -n storm --ignore-not-found
+
+      - name: Patch and launch k6
+        run: |
+          sed -i "s/value: \"25000\"/value: \"${{ github.event.inputs.target_vus }}\"/" \
+            infra/k8s-azure/k6-runner/k6-job.yaml
+          kubectl apply -f infra/k8s-azure/k6-runner/k6-job.yaml
+
+      - name: Wait for completion
+        run: |
+          kubectl wait --for=condition=complete job/k6-load-test \
+            -n storm --timeout=900s || true
+
+      - name: Collect logs
+        run: |
+          kubectl logs -l app=k6-runner -n storm --tail=100

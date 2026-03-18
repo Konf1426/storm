@@ -1,0 +1,14 @@
+# k6 test script mounted as a ConfigMap for distributed runners.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-script
+  namespace: storm
+data:
+  storm-azure.js: |
+    // This ConfigMap is auto-generated.
+    // For the full script, see scripts/k6/storm-azure.js
+    // The k6-job mounts this file into /scripts/storm-azure.js
+    //
+    // To update, run:
+    //   kubectl create configmap k6-script --from-file=storm-azure.js=scripts/k6/storm-azure.js -n storm --dry-run=client -o yaml | kubectl apply -f -

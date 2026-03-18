@@ -1,0 +1,19 @@
+# ConfigMap for Azure deployment.
+# Overrides the base storm-config with Azure-specific values.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: storm-config
+  namespace: storm
+data:
+  NATS_URL: "nats://nats:4222"
+  GATEWAY_ADDR: ":8080"
+  MESSAGES_ADDR: ":8081"
+  PPROF_ADDR_GATEWAY: ":6060"
+  PPROF_ADDR_MESSAGES: ":6061"
+  SUBJECT: "storm.events"
+  CORS_ORIGIN: "*"
+  # Perf tuning for 100k connections
+  WORKER_POOL_SIZE: "64"
+  BCRYPT_COST: "10"
+  AUTH_RATE_LIMIT_ENABLED: "false"

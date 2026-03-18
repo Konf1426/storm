@@ -1,0 +1,64 @@
+# Distributed k6 load test runner.
+# Launches multiple parallel pods, each generating TARGET_VUS virtual users.
+#
+# Usage:
+#   1. Create the ConfigMap from the script:
+#      kubectl create configmap k6-script \
+#        --from-file=storm-azure.js=scripts/k6/storm-azure.js \
+#        -n storm --dry-run=client -o yaml | kubectl apply -f -
+#
+#   2. Apply this job:
+#      kubectl apply -f infra/k8s-azure/k6-runner/k6-job.yaml
+#
+#   3. Watch logs:
+#      kubectl logs -f -l job-name=k6-load-test -n storm
+#
+# Adjust parallelism and TARGET_VUS to reach the desired total:
+#   4 pods × 25000 VUs = 100 000 connections
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-load-test
+  namespace: storm
+spec:
+  parallelism: 4
+  completions: 4
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: k6-runner
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: grafana/k6:latest
+          command: ["k6", "run", "/scripts/storm-azure.js"]
+          env:
+            - name: BASE_URL
+              value: "http://gateway.storm.svc.cluster.local:8080"
+            - name: WS_URL
+              value: "ws://gateway.storm.svc.cluster.local:8080/ws"
+            - name: TARGET_VUS
+              value: "25000"
+            - name: RAMP_UP
+              value: "3m"
+            - name: HOLD
+              value: "5m"
+            - name: RAMP_DOWN
+              value: "1m"
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+          volumeMounts:
+            - name: k6-script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: k6-script
+          configMap:
+            name: k6-script

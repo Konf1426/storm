@@ -1,0 +1,44 @@
+# Ingress for Azure Application Gateway Ingress Controller (AGIC).
+# Supports WebSocket natively via Application Gateway v2.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: storm-ingress
+  namespace: storm
+  annotations:
+    kubernetes.io/ingress.class: azure/application-gateway
+    # WebSocket support: extend timeouts for long-lived connections
+    appgw.ingress.kubernetes.io/request-timeout: "3600"
+    appgw.ingress.kubernetes.io/connection-draining: "true"
+    appgw.ingress.kubernetes.io/connection-draining-timeout: "30"
+    # Health probe
+    appgw.ingress.kubernetes.io/health-probe-path: "/healthz"
+    appgw.ingress.kubernetes.io/health-probe-port: "8080"
+    appgw.ingress.kubernetes.io/health-probe-interval: "15"
+    # Backend protocol
+    appgw.ingress.kubernetes.io/backend-protocol: "http"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port:
+                  number: 8080
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+          - path: /prometheus
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090
