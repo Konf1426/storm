@@ -21,8 +21,8 @@ metadata:
   name: k6-load-test
   namespace: storm
 spec:
-  parallelism: 1
-  completions: 1
+  parallelism: 5
+  completions: 5
   backoffLimit: 0
   template:
     metadata:
@@ -50,10 +50,10 @@ spec:
           resources:
             requests:
               cpu: "100m"
-              memory: "128Mi"
-            limits:
-              cpu: "500m"
               memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
           volumeMounts:
             - name: k6-script
               mountPath: /scripts

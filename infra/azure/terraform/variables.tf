@@ -36,8 +36,8 @@ variable "aks_max_count" {
 
 variable "aks_vm_size" {
   type        = string
-  description = "AKS node VM size (4 vCPU / 16 GB recommended for 100k WS)"
-  default     = "Standard_B2s"
+  description = "AKS node VM size (Upgraded for 5000+ WS)"
+  default     = "Standard_D4s_v5"
 }
 
 variable "kubernetes_version" {
@@ -62,8 +62,8 @@ variable "db_admin_password" {
 
 variable "db_sku" {
   type        = string
-  description = "PostgreSQL Flexible Server SKU"
-  default     = "B_Standard_B2s"
+  description = "PostgreSQL Flexible Server SKU (General Purpose for I/O)"
+  default     = "GP_Standard_D4ds_v4"
 }
 
 variable "db_version" {

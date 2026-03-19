@@ -38,7 +38,7 @@ spec:
               drop: ["ALL"]
           resources:
             requests:
-              cpu: "200m"
+              cpu: "50m"
               memory: "256Mi"
             limits:
               cpu: "1"
@@ -84,17 +84,22 @@ spec:
                 secretKeyRef:
                   name: storm-secret
                   key: REDIS_ADDR
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: storm-secret
+                  key: REDIS_PASSWORD
           livenessProbe:
             httpGet:
               path: /healthz
               port: 8080
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /healthz
               port: 8080
-            initialDelaySeconds: 5
+            initialDelaySeconds: 15
             periodSeconds: 5
       volumes:
         - name: tmp-dir
