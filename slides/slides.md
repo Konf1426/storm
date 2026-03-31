@@ -56,84 +56,7 @@ Transition :
 
 ---
 
-<div class="page-shell architecture-shell">
-  <p class="eyebrow">02 — Architecture actuelle</p>
-  <h2 class="section-title">Une architecture compacte, observable et cohérente avec le code</h2>
-  <p class="section-copy">
-    Gateway Go, WebSocket, NATS, Postgres, Redis et observabilité Prometheus / Grafana —
-    chaque brique a un rôle précis et l'ensemble reste lisible en 30 secondes.
-  </p>
-  <div class="stack-shell">
-    <div class="stack-panel">
-      <p class="divider-title">Surface d'entree</p>
-      <div class="stack-node">
-        <img class="stack-icon" src="/icons/vue.svg" alt="Vue" />
-        <div>
-          <p class="stack-title">Frontend de démo</p>
-          <p class="stack-copy">Vue 3 / Vite pour piloter les sessions utilisateur</p>
-        </div>
-      </div>
-      <div class="stack-node">
-        <img class="stack-icon" src="/icons/go.png" alt="Go" />
-        <div>
-          <p class="stack-title">Gateway Go</p>
-          <p class="stack-copy">Auth JWT, endpoint /ws, publication NATS, métriques Prometheus</p>
-        </div>
-      </div>
-      <div class="stack-node">
-        <img class="stack-icon" src="/icons/nats.png" alt="NATS" />
-        <div>
-          <p class="stack-title">Bus temps réel NATS</p>
-          <p class="stack-copy">Pub/sub inter-services en mémoire, sub-milliseconde</p>
-        </div>
-      </div>
-      <div class="stack-node">
-        <img class="stack-icon" src="/icons/go.png" alt="Go" />
-        <div>
-          <p class="stack-title">Service messages</p>
-          <p class="stack-copy">Consommation NATS et écriture asynchrone en base</p>
-        </div>
-      </div>
-    </div>
-    <div class="stack-panel">
-      <p class="divider-title">État & supervision</p>
-      <div class="stack-node">
-        <img class="stack-icon" src="/icons/postgres.svg" alt="Postgres" />
-        <div>
-          <p class="stack-title">Postgres</p>
-          <p class="stack-copy">Utilisateurs, canaux, messages, tokens</p>
-        </div>
-      </div>
-      <div class="stack-node">
-        <img class="stack-icon" src="/icons/redis.svg" alt="Redis" />
-        <div>
-          <p class="stack-title">Redis</p>
-          <p class="stack-copy">Presence et etat ephemere des connexions</p>
-        </div>
-      </div>
-      <div class="stack-node">
-        <img class="stack-icon" src="/icons/prometheus.svg" alt="Prometheus" />
-        <div>
-          <p class="stack-title">Prometheus</p>
-          <p class="stack-copy">Scrape des métriques custom exposées par le gateway</p>
-        </div>
-      </div>
-      <div class="stack-node">
-        <img class="stack-icon" src="/icons/grafana.svg" alt="Grafana" />
-        <div>
-          <p class="stack-title">Grafana</p>
-          <p class="stack-copy">Dashboards et lecture des SLOs</p>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="chip-row takeaways-row">
-    <span class="chip flow-chip">Auth : login → JWT → refresh</span>
-    <span class="chip flow-chip">Temps réel : /ws + NATS</span>
-    <span class="chip flow-chip">Persistance : worker pool → Postgres</span>
-    <span class="chip flow-chip">Supervision : Prometheus → Grafana</span>
-  </div>
-</div>
+<ArchitectureFlow />
 
 <!--
 2 min 30
@@ -150,28 +73,7 @@ Transition :
 
 ---
 
-<div class="page-shell">
-  <p class="eyebrow">03 — Choix techniques</p>
-  <h2 class="section-title">Chaque technologie se justifie par le sujet, pas par la mode</h2>
-  <p class="section-copy">
-    L'enjeu n'était pas d'empiler des briques, mais de choisir celles qui se défendent
-    le plus clairement face au jury et aux contraintes du projet.
-  </p>
-
-  <div class="decision-grid">
-    <article class="decision-card" v-for="decision in $storm.technicalChoices" :key="decision.title">
-      <div class="icon-inline">
-        <span class="accent-badge">{{ decision.title }}</span>
-      </div>
-      <p>{{ decision.detail }}</p>
-      <p class="decision-why"><strong>Pourquoi ce choix:</strong> {{ decision.why }}</p>
-    </article>
-  </div>
-
-
-
-  <SourceStrip :items="$storm.sources.architecture" />
-</div>
+<ArchDetailsSlide />
 
 <!--
 2 min
