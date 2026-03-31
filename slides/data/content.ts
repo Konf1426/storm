@@ -32,14 +32,58 @@ export interface BudgetScenario {
   note: string
 }
 
+export interface AgendaItem {
+  index: string
+  title: string
+  detail: string
+}
+
 export const deckMeta = {
   title: "STORM",
-  subtitle: "Backend de messagerie temps réel distribué",
+  subtitle: "Application de messagerie temps réel",
+  teamMembers: ["Sébastien GRATADE", "Melvin BECUE", "Nelson ALMEIDA"],
   oralWindow: "25 min de présentation + 5 min de questions",
-  teamLabel: "Équipe STORM — noms à compléter",
   positioning:
-    "Concevoir le backend d'une plateforme de messagerie comparable à Slack ou Discord, capable d'absorber un pic de trafic viral tout en restant observable, testable et défendable à l'oral.",
+    "STORM est une application de messagerie sur laquelle nous avons conçu un backend capable d'absorber un pic de trafic important, tout en restant observable, testable et défendable à l'oral.",
 }
+
+export const presentationPlan: AgendaItem[] = [
+  {
+    index: "01",
+    title: "Démarche du projet",
+    detail: "Grandes phases de construction et méthode de travail",
+  },
+  {
+    index: "02",
+    title: "Architecture",
+    detail: "Vue d'ensemble du système, flux temps réel et composants clés",
+  },
+  {
+    index: "03",
+    title: "Choix techniques",
+    detail: "Justification des technologies retenues et des compromis assumés",
+  },
+  {
+    index: "04",
+    title: "Sécurité et qualité",
+    detail: "Authentification, protections applicatives, tests et couverture",
+  },
+  {
+    index: "05",
+    title: "Performance et chaos",
+    detail: "Méthodologie k6, résultats sous charge et lecture de la résilience",
+  },
+  {
+    index: "06",
+    title: "Scalabilité et budget",
+    detail: "Projection cloud, contraintes de coûts et limites actuelles",
+  },
+  {
+    index: "07",
+    title: "Conclusion et démo",
+    detail: "Synthèse, démonstration courte et ouverture sur les questions",
+  },
+]
 
 export const objectives: Objective[] = [
   {
@@ -57,7 +101,7 @@ export const objectives: Objective[] = [
   {
     label: "Budget plafond",
     value: "<= 700 EUR",
-    note: "enveloppe mensuelle AWS ou équivalent cloud",
+    note: "plafond du sujet, avec bascule Azure imposée en fin de projet",
     tone: "slate",
   },
 ]

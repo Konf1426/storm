@@ -10,104 +10,36 @@ drawings:
   persist: false
 ---
 
-<div class="page-shell hero-shell">
-  <p class="eyebrow">MT4 - Soutenance de projet - 25 min + 5 min Q/R</p>
-  <h1 class="hero-title">{{ $storm.deckMeta.title }}</h1>
-  <p class="hero-subtitle">
-    {{ $storm.deckMeta.subtitle }} :
-    {{ $storm.deckMeta.positioning }}
-  </p>
-
-  <div class="hero-tags">
-    <span class="hero-tag">Go</span>
-    <span class="hero-tag">WebSocket</span>
-    <span class="hero-tag">NATS</span>
-    <span class="hero-tag">Postgres</span>
-    <span class="hero-tag">Redis</span>
-    <span class="hero-tag">Prometheus</span>
-    <span class="hero-tag">Grafana</span>
-  </div>
-
-  <div class="hero-meta">
-    <div class="meta-panel">
-      <p class="panel-title">Promesse de la présentation</p>
-      <p class="meta-note">
-        Démontrer un backend temps réel conçu avec méthode : instrumenté, testé,
-        sécurisé et éprouvé sous charge.
-      </p>
-    </div>
-    <div class="meta-panel">
-      <p class="panel-title">Equipe</p>
-      <p class="meta-note">{{ $storm.deckMeta.teamLabel }}</p>
-      <p class="meta-note">{{ $storm.deckMeta.oralWindow }}</p>
-    </div>
-  </div>
-
-  <div class="route-line">
-    <span class="route-chip">Contexte</span>
-    <span class="route-chip">Architecture</span>
-    <span class="route-chip">Securite & tests</span>
-    <span class="route-chip">Performance & chaos</span>
-    <span class="route-chip">Budget & suite</span>
-  </div>
-
-  <SourceStrip :items="$storm.sources.goals" />
-</div>
+<IntroCover />
 
 <!--
 1 min 30
 
 Ouverture :
-« Bonjour, nous vous présentons STORM — notre backend de messagerie temps réel distribué. »
+« Bonjour, nous vous présentons STORM — une application de messagerie temps réel pour laquelle nous avons conçu un backend capable d'absorber un pic de trafic important. »
 
 Message clé :
 L'objectif n'est pas de prétendre que le système est industrialisé à 100 %, mais de montrer une architecture cohérente, instrumentée et défendable avec des preuves.
 
 Transition :
-« On va commencer par la cible du sujet, les chiffres à atteindre, et les critères d'évaluation de l'école. »
+« On va commencer par le sommaire de la présentation. »
 -->
 
 ---
 
-<div class="page-shell">
-  <p class="eyebrow">01 — Sujet, cible et barème</p>
-  <h2 class="section-title">Ce que le sujet attend réellement de nous</h2>
+<SummarySlide />
 
-  <div class="stats-grid">
-    <StatCard
-      v-for="objective in $storm.objectives"
-      :key="objective.label"
-      :label="objective.label"
-      :value="objective.value"
-      :note="objective.note"
-      :tone="objective.tone"
-    />
-  </div>
+<!--
+30 secondes
 
-  <div class="content-grid-2">
-    <div class="callout-panel">
-      <p class="divider-title">Phases attendues par le sujet</p>
-      <ul class="signal-list">
-        <li v-click>Architecture, Infrastructure as Code, CI/CD et contrat d'API</li>
-        <li v-click>Développement, couverture de tests > 80 % et scans de sécurité</li>
-        <li v-click>Performance, profilage et tests de charge k6</li>
-        <li v-click>Chaos engineering, Storm Day et rédaction de post-mortems</li>
-      </ul>
-    </div>
-    <div class="callout-panel">
-      <p class="divider-title">Ce qui pèse dans la note</p>
-      <ul class="signal-list">
-        <li v-for="criterion in $storm.evaluationCriteria" :key="criterion.title">
-          <strong>{{ criterion.title }}</strong> - {{ criterion.detail }}
-        </li>
-      </ul>
-    </div>
-  </div>
+Parcourir rapidement les sections.
+Transition :
+« On commence par la cible du sujet, les chiffres à atteindre et les critères d'évaluation. »
+-->
 
+---
 
-
-  <SourceStrip :items="$storm.sources.goals" />
-</div>
+<ObjectivesSlide />
 
 <!--
 2 min
