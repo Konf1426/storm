@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell arch-flow-shell">
     <div class="arch-header">
-      <p class="eyebrow">02 — Architecture actuelle</p>
+      <p class="eyebrow">04 — Architecture actuelle</p>
       <h2 class="section-title">L'architecture : compacte, observable et défendable</h2>
     </div>
 

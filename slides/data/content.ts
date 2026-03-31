@@ -32,6 +32,34 @@ export interface BudgetScenario {
   note: string
 }
 
+export interface AzureLoadTestStage {
+  vus: string
+  dominantBlocker: string
+  httpSuccess: string
+  messageMedian: string
+  loginMedian: string
+  loginAverage: string
+  websocketThroughput: string
+}
+
+export interface AzureLoadTestCosts {
+  steadyStateReference: string
+  stressTestBurst: string
+  standby: string
+  postgresShare: string
+}
+
+export interface AzureLoadTest {
+  date: string
+  initialInfra: string[]
+  blockers: Signal[]
+  softwareOptimization: Signal
+  infraScaling: string[]
+  stages: AzureLoadTestStage[]
+  costs: AzureLoadTestCosts
+  caveats: string[]
+}
+
 export interface AgendaItem {
   index: string
   title: string
@@ -44,7 +72,7 @@ export const deckMeta = {
   teamMembers: ["Sébastien GRATADE", "Melvin BECUE", "Nelson ALMEIDA"],
   oralWindow: "25 min de présentation + 5 min de questions",
   positioning:
-    "STORM est une application de messagerie sur laquelle nous avons conçu un backend capable d'absorber un pic de trafic important, tout en restant observable, testable et défendable à l'oral.",
+    "STORM est une application de messagerie sur laquelle nous avons conçu un backend capable d'absorber un pic de trafic important.",
 }
 
 export const presentationPlan: AgendaItem[] = [
@@ -377,9 +405,86 @@ export const budgetScenarios: BudgetScenario[] = [
   {
     name: "Preuve Azure AKS",
     estimate: "~255 EUR/mois",
-    note: "Architecture de test AKS documentée dans le repo — un test ponctuel de quelques heures coûte entre 5 et 15 EUR.",
+    note: "Architecture cloud de référence documentée dans le repo pour un déploiement continu, distincte de la campagne de stress test du 19 mars 2026.",
   },
 ]
+
+export const azureLoadTest: AzureLoadTest = {
+  date: "19 mars 2026",
+  initialInfra: [
+    "1 nœud AKS Standard_B2s",
+    "2 réplicas Gateway",
+    "PostgreSQL 4 vCores",
+  ],
+  blockers: [
+    {
+      title: "MC_ absent",
+      detail: "Le groupe de ressources managé AKS n'était pas réconcilié — corrigé via az aks update.",
+    },
+    {
+      title: "ACR 401",
+      detail: "Le pull des images échouait — résolu avec az aks update --attach-acr.",
+    },
+    {
+      title: "Rate limiting",
+      detail: "Le palier 1000 VUs tombait à 0,01 % de succès HTTP à cause du garde-fou 5 req/min/IP.",
+    },
+    {
+      title: "CPU bcrypt",
+      detail: "Les inscriptions massives saturaient le CPU tant que le coût par défaut de bcrypt restait actif.",
+    },
+  ],
+  softwareOptimization: {
+    title: "Le vrai saut : NATS immédiat + persistance asynchrone",
+    detail:
+      "La Gateway publie immédiatement dans NATS, puis délègue l'écriture PostgreSQL à un pool de workers. La latence message passe de ~3 s à < 100 ms.",
+  },
+  infraScaling: [
+    "AKS multi-familles à 26 vCPUs pour contourner les quotas Azure par famille",
+    "PostgreSQL Flexible Server porté à 16 vCores, 128 Go, max_connections=2000",
+    "30 instances Gateway en parallèle pendant le test ultra",
+  ],
+  stages: [
+    {
+      vus: "1 000",
+      dominantBlocker: "Rate limit applicatif",
+      httpSuccess: "0,01 %",
+      messageMedian: "~2,5 s",
+      loginMedian: "> 4 s",
+      loginAverage: "> 5 s",
+      websocketThroughput: "~20 M msg",
+    },
+    {
+      vus: "5 000",
+      dominantBlocker: "Bottleneck DB",
+      httpSuccess: "~20 %",
+      messageMedian: "< 100 ms",
+      loginMedian: "~1,1 s",
+      loginAverage: "~1,8 s",
+      websocketThroughput: "~40 M msg",
+    },
+    {
+      vus: "10 000",
+      dominantBlocker: "Coût de persistance maîtrisé mais dominant",
+      httpSuccess: "~100 %",
+      messageMedian: "~85 ms",
+      loginMedian: "144 ms",
+      loginAverage: "221 ms",
+      websocketThroughput: "~210 M msg",
+    },
+  ],
+  costs: {
+    steadyStateReference: "~255 EUR/mois",
+    stressTestBurst: "~3,33 $/h",
+    standby: "~0,15 $/h",
+    postgresShare: "~45 %",
+  },
+  caveats: [
+    "AUTH_RATE_LIMIT_ENABLED=false a servi uniquement à retirer un faux plafond de benchmark, pas à définir la production.",
+    "BCRYPT_COST=4 a servi uniquement pendant la campagne d'inscriptions massives, pas comme cible sécurité finale.",
+    "10 000 VUs valident une trajectoire cloud crédible, pas la preuve finale des 100 000 connexions du sujet.",
+  ],
+}
 
 export const nextSteps: Signal[] = [
   {
@@ -411,5 +516,6 @@ export const sources = {
   performance: ["docs/performance.md", "docs/storm-day-results.md"],
   chaos: ["docs/chaos.md", "docs/storm-day-results-20260224.md", "docs/post-mortem-20260204.md"],
   budget: ["docs/budget.md", "docs/azure-deployment.md"],
+  azureLoadTest: ["docs/azure-load-test-final-report.md", "docs/azure-deployment.md", "docs/perf-scale-plan.md"],
   api: ["docs/api/openapi.yml", "services/gateway/server.go"],
 }
