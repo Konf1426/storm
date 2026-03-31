@@ -136,19 +136,19 @@
 .bento-card {
   background: var(--storm-surface-strong);
   border: 1px solid rgba(22, 34, 43, 0.06);
-  border-radius: 16px; padding: 0.8rem 1rem;
-  display: flex; flex-direction: column; gap: 0.6rem;
+  border-radius: 16px; padding: 0.6rem 0.8rem;
+  display: flex; flex-direction: column; gap: 0.4rem;
   box-shadow: 0 4px 16px rgba(18, 28, 36, 0.04);
   backdrop-filter: blur(20px); min-height: 0;
 }
 .bento-card-header { display: flex; align-items: center; gap: 0.4rem; }
-.bento-card-header h3 { font-size: 0.9rem; font-weight: 700; color: var(--storm-ink); letter-spacing: -0.02em; margin: 0; }
-.mb-1 { margin-bottom: 0.5rem; }
-.bento-icon { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(22, 34, 43, 0.04); }
-.cyan-glow { box-shadow: 0 0 12px rgba(13, 159, 184, 0.2); color: var(--storm-cyan); }
-.orange-glow { box-shadow: 0 0 12px rgba(239, 138, 41, 0.2); color: var(--storm-orange); }
-.slate-glow { box-shadow: 0 0 12px rgba(63, 85, 96, 0.2); color: var(--storm-slate); }
-.green-glow { box-shadow: 0 0 12px rgba(16, 185, 129, 0.2); color: #10b981; }
+.bento-card-header h3 { font-size: 0.8rem; font-weight: 700; color: var(--storm-ink); letter-spacing: -0.02em; margin: 0; }
+.mb-1 { margin-bottom: 0.3rem; }
+.bento-icon { width: 18px; height: 18px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(22, 34, 43, 0.04); }
+.cyan-glow { box-shadow: 0 0 10px rgba(13, 159, 184, 0.15); color: var(--storm-cyan); }
+.orange-glow { box-shadow: 0 0 10px rgba(239, 138, 41, 0.15); color: var(--storm-orange); }
+.slate-glow { box-shadow: 0 0 10px rgba(63, 85, 96, 0.15); color: var(--storm-slate); }
+.green-glow { box-shadow: 0 0 10px rgba(16, 185, 129, 0.15); color: #10b981; }
 
 .c-cyan { color: var(--storm-cyan); }
 .c-cyan-dim { color: rgba(13, 159, 184, 0.6); }
@@ -167,10 +167,10 @@
 .kpi-visual.border-cyan { background: rgba(13, 159, 184, 0.05); border: 1px solid rgba(13, 159, 184, 0.2); }
 
 .kpi-value { display: flex; align-items: baseline; justify-content: center; line-height: 1; }
-.font-block { font-family: "IBM Plex Mono", monospace; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.05em; }
-.kpi-unit { font-size: 1.2rem; font-weight: 800; margin-left: 2px; }
+.font-block { font-family: "IBM Plex Mono", monospace; font-size: 1.8rem; font-weight: 800; letter-spacing: -0.05em; }
+.kpi-unit { font-size: 1rem; font-weight: 800; margin-left: 2px; }
 .text-slate { color: var(--storm-slate); }
-.kpi-sub { font-family: "IBM Plex Mono", monospace; font-size: 0.5rem; font-weight: 700; color: var(--storm-slate); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.2rem; opacity: 0.8; }
+.kpi-sub { font-family: "IBM Plex Mono", monospace; font-size: 0.45rem; font-weight: 700; color: var(--storm-slate); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.1rem; opacity: 0.8; }
 
 /* Infra Visual */
 .infra-visual { display: flex; align-items: center; background: rgba(22, 34, 43, 0.02); border-radius: 8px; padding: 0.6rem; border: 1px solid rgba(22, 34, 43, 0.05); margin-top: 0.2rem; }
@@ -190,8 +190,8 @@
 .bg-dark { background: rgba(22, 34, 43, 0.05); color: var(--storm-slate) !important; border: 1px solid rgba(22, 34, 43, 0.1); }
 .box-bg { background: white; border: 1px solid rgba(22, 34, 43, 0.1); color: var(--storm-slate); }
 .storm-table { width: 100%; border-collapse: collapse; text-align: left; }
-.storm-table th { padding: 0.5rem 0.8rem; font-size: 0.55rem; font-weight: 700; color: var(--storm-slate); text-transform: uppercase; letter-spacing: 0.05em; background: rgba(22, 34, 43, 0.03); border-bottom: 1px solid rgba(22, 34, 43, 0.08); }
-.storm-table td { padding: 0.5rem 0.8rem; border-bottom: 1px solid rgba(22, 34, 43, 0.04); vertical-align: middle; }
+.storm-table th { padding: 0.4rem 0.6rem; font-size: 0.5rem; font-weight: 700; color: var(--storm-slate); text-transform: uppercase; letter-spacing: 0.05em; background: rgba(22, 34, 43, 0.03); border-bottom: 1px solid rgba(22, 34, 43, 0.08); }
+.storm-table td { padding: 0.35rem 0.6rem; border-bottom: 1px solid rgba(22, 34, 43, 0.04); vertical-align: middle; font-size: 0.65rem; }
 .text-right { text-align: right; }
 .font-medium { font-weight: 500; }
 .font-bold { font-weight: 700; }

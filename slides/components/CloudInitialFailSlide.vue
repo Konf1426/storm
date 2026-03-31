@@ -122,13 +122,13 @@
 }
 
 .bento-card-header { display: flex; align-items: center; gap: 0.4rem; }
-.bento-card-header h3 { font-size: 0.9rem; font-weight: 700; color: var(--storm-ink); letter-spacing: -0.02em; margin: 0; }
-.bento-icon { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(22, 34, 43, 0.04); }
-.cyan-glow { box-shadow: 0 0 12px rgba(13, 159, 184, 0.2); color: var(--storm-cyan); }
-.orange-glow { box-shadow: 0 0 12px rgba(239, 138, 41, 0.2); color: var(--storm-orange); }
-.slate-glow { box-shadow: 0 0 12px rgba(63, 85, 96, 0.2); color: var(--storm-slate); }
+.bento-card-header h3 { font-size: 0.8rem; font-weight: 700; color: var(--storm-ink); letter-spacing: -0.02em; margin: 0; }
+.bento-icon { width: 18px; height: 18px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(22, 34, 43, 0.04); }
+.cyan-glow { box-shadow: 0 0 10px rgba(13, 159, 184, 0.15); color: var(--storm-cyan); }
+.orange-glow { box-shadow: 0 0 10px rgba(239, 138, 41, 0.15); color: var(--storm-orange); }
+.slate-glow { box-shadow: 0 0 10px rgba(63, 85, 96, 0.15); color: var(--storm-slate); }
 
-.bento-desc { font-size: 0.72rem; line-height: 1.25; color: var(--storm-muted); margin: 0; }
+.bento-desc { font-size: 0.65rem; line-height: 1.2; color: var(--storm-muted); margin: 0; }
 
 /* -- Rate Limit Visual -- */
 .rl-visual {
@@ -163,21 +163,21 @@
 .bento-tag-value { font-family: "IBM Plex Mono", monospace; font-size: 0.55rem; color: var(--storm-slate); font-weight: 700;}
 
 /* -- KPI Visual -- */
-.kpi-visual { margin-top: auto; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #11181c; border-radius: 8px; padding: 1rem; border: 1px solid rgba(239, 138, 41, 0.3); box-shadow: inset 0 2px 8px rgba(0,0,0,0.2); }
-.kpi-value { font-size: 3rem; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
-.kpi-unit { font-size: 1.5rem; margin-left: 2px; }
-.c-orange { color: var(--storm-orange); }
-.kpi-subc { font-family: "IBM Plex Mono", monospace; font-size: 0.55rem; color: #94a3b8; margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.05em; text-align: center; }
+.kpi-visual { margin-top: auto; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #11181c; border-radius: 8px; padding: 0.8rem; border: 1px solid rgba(239, 138, 41, 0.3); box-shadow: inset 0 2px 8px rgba(0,0,0,0.2); color: white !important; }
+.kpi-value { font-size: 2.2rem; font-weight: 800; line-height: 1; letter-spacing: -0.04em; color: white !important; }
+.kpi-unit { font-size: 1.2rem; margin-left: 2px; color: var(--storm-orange); }
+.c-orange { color: var(--storm-orange) !important; }
+.kpi-subc { font-family: "IBM Plex Mono", monospace; font-size: 0.5rem; color: #94a3b8; margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.05em; text-align: center; }
 
 /* -- Metrics Visual -- */
 .metrics-visual { margin-top: auto; display: flex; flex-direction: column; gap: 0.4rem; background: rgba(22, 34, 43, 0.02); border-radius: 8px; padding: 0.6rem; border: 1px solid rgba(22, 34, 43, 0.05); }
 .mv-row { display: flex; justify-content: space-between; align-items: center; padding: 0.2rem 0; }
 .mv-row.border-b { border-bottom: 1px dashed rgba(22, 34, 43, 0.1); padding-bottom: 0.4rem; }
-.mv-label { font-size: 0.65rem; font-weight: 600; color: var(--storm-slate); text-transform: uppercase; letter-spacing: 0.02em; }
-.mv-val { font-size: 1.2rem; font-weight: 800; color: var(--storm-ink); font-family: "IBM Plex Mono", monospace; }
+.mv-label { font-size: 0.6rem; font-weight: 600; color: var(--storm-slate); text-transform: uppercase; letter-spacing: 0.02em; }
+.mv-val { font-size: 1rem; font-weight: 800; color: var(--storm-ink); font-family: "IBM Plex Mono", monospace; }
 .c-cyan { color: var(--storm-cyan); }
-.code-font { color: var(--storm-cyan); font-size: 0.9rem; }
+.code-font { color: var(--storm-cyan); font-size: 0.8rem; }
 .mt-1 { margin-top: 0.2rem; }
-.mv-budget { background: #11181c; padding: 0.4rem; border-radius: 6px; }
-.mv-budget .mv-val { color: var(--storm-cyan); }
+.mv-budget { background: #11181c; padding: 0.3rem 0.5rem; border-radius: 6px; color: white !important; }
+.mv-budget .mv-val { color: var(--storm-cyan) !important; font-size: 0.8rem; }
 </style>
