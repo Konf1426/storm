@@ -91,68 +91,7 @@ Transition :
 
 ---
 
-<div class="page-shell">
-  <p class="eyebrow">04 — Sécurité</p>
-  <h2 class="section-title">La sécurité est intégrée dès la conception, pas ajoutée après coup</h2>
-
-  <div class="signal-grid">
-    <article class="signal-card" v-for="control in $storm.securityControls" :key="control.title">
-      <p class="card-title">{{ control.title }}</p>
-      <p class="signal-detail">{{ control.detail }}</p>
-    </article>
-  </div>
-
-  <div class="callout-panel">
-    <p class="divider-title">Pipeline CI</p>
-    <div class="chip-row">
-      <span class="chip">GitHub Actions</span>
-      <span class="chip">go test -cover</span>
-      <span class="chip">Gosec</span>
-      <span class="chip">Trivy</span>
-    </div>
-  </div>
-
-  <SourceStrip :items="$storm.sources.security" />
-</div>
-
-<!--
-2 min 30
-
-Ordre à suivre :
-JWT → cookies HttpOnly → rate limit → headers → scans CI.
-
-Bien préciser :
-« On parle ici de sécurité raisonnable pour un projet d'école. On ne prétend pas remplacer un SI bancaire, mais on a de vraies protections démontrables dans le code. »
-
-Transition :
-« Ces protections s'accompagnent d'une vraie stratégie de tests qu'on va détailler maintenant. »
--->
-
----
-
-<div class="page-shell">
-  <p class="eyebrow">05 — Tests & qualité</p>
-  <h2 class="section-title">L'objectif > 80 % de couverture est atteint, avec des tests centrés sur le comportement</h2>
-
-  <div class="stats-grid">
-    <StatCard
-      v-for="coverage in $storm.testEvidence.coverage"
-      :key="coverage.label"
-      :label="coverage.label"
-      :value="coverage.value"
-      :note="coverage.note"
-      :tone="coverage.tone"
-    />
-    <StatCard
-      label="Focus"
-      value="WS + auth + storage"
-      note="la couverture cible les zones les plus critiques du système"
-      tone="slate"
-    />
-  </div>
-
-  <SourceStrip :items="$storm.sources.tests" />
-</div>
+<QualitySecuritySlide />
 
 <!--
 2 min
@@ -167,7 +106,7 @@ Nuance :
 ---
 
 <div class="page-shell">
-  <p class="eyebrow">06 — Observabilité & SLOs</p>
+  <p class="eyebrow">05 — Observabilité & SLOs</p>
   <h2 class="section-title">Impossible de parler de résilience sans mesurer ce qui se passe</h2>
 
   <div class="content-grid-2">
