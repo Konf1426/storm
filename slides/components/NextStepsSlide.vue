@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">13 — Prochaines Étapes</p>
+      <p class="eyebrow">14 — Prochaines Étapes</p>
       <h2 class="section-title">Projection & Vision : franchir un nouveau cap</h2>
     </div>
 

@@ -175,42 +175,54 @@ Transition :
 
 ---
 
-<CloudAnalysisSlide />
+<CloudInitialFailSlide />
 
 <!--
 11 - 2 min
 
-Contexte à poser immédiatement :
-« Le 19 mars 2026, on a fait un vrai test cloud Azure, parce qu'Azure nous a été imposé en fin de projet. »
-
-Fil narratif :
-Le premier run ne mesure pas STORM, il révèle des "faux plafonds" de configuration :
-1. MC_ absent (Azure Resource Group)
-2. ACR 401 (Problème de pull d'images)
-3. Rate Limiting applicatif trop strict pour un benchmark.
-4. Coût CPU Bcrypt qui sature les nœuds.
+📉 Le Test de Départ (1 000 VUs) :
+Expliquer l'échec critique initial. Ce n'était pas un problème de code STORM, mais une sous-configuration Azure et un Rate Limiter trop agressif.
+- 99 % d'échecs.
+- Latence Login > 4s.
+Budget minimal : 0,15 $/h.
 
 Transition :
-« Une fois ces verrous levés, on a pu mesurer la vraie puissance de l'architecture. »
+« On a donc dû pivoter, à la fois sur le code et sur l'infrastructure. »
 -->
 
 ---
 
-<CloudResultsSlide />
+<CloudOptimizationSlide />
 
 <!--
 12 - 2 min
 
-Le saut de performance :
-1. Découplage NATS / Postgres : Publication immédiate, écriture différée.
-2. Ultra scaling : 26 vCPUs, Postgres 16 vCores, 30 instances Gateway.
-3. Résultat : ~100 % de succès à 10 000 VUs, latence message divisée par 30 (< 100 ms).
-
-Point budgétaire :
-Coût massif pendant le pic (3,33 $/h) mais standby très faible (0,15 $/h). Le système est élastique.
+📈 Le Cap des 5 000 VUs (Optimisation) :
+Détailler le pivot technique :
+- Messages asynchrones (NATS libère la gateway).
+- Bcrypt Cost=4 (libère le CPU).
+Résultat : La latence message chute sous les 100ms. On commence à voir le potentiel.
 
 Transition :
-« Ces tests massifs nous ouvrent déjà des pistes d'amélioration concrètes pour le futur. »
+« Pour valider la trajectoire finale du sujet, on a sorti l'artillerie lourde. »
+-->
+
+---
+
+<CloudSuccessSlide />
+
+<!--
+13 - 2 min
+
+🚀 Le Test Ultime (10 000 VUs) :
+Commenter la configuration "Ultra" : 26 vCPUs multi-famille, DB 16 Cores.
+Résultat : 100 % de succès, 144ms de login médian. 210M de messages WebSocket.
+
+Tableau de synthèse :
+Montrer qu'on a testé plusieurs trajectoires (B2s vs D-Series) et qu'on sait combien coûte la performance (3,33 $/h).
+
+Transition :
+« Cette expérience cloud nous donne une vision claire pour la suite du projet. »
 -->
 
 ---
@@ -218,12 +230,12 @@ Transition :
 <NextStepsSlide />
 
 <!--
-13 - 1 min
+14 - 1 min
 
-Présenter chaque axe d'amélioration comme une action concrète, pas comme un aveu de faiblesse.
+Présenter les axes d'amélioration comme des ouvertures stratégiques.
 
 Transition :
-« On conclut en une minute. »
+« On termine par la conclusion finale. »
 -->
 
 ---
@@ -231,11 +243,11 @@ Transition :
 <ConclusionSlide />
 
 <!--
-14 - 1 min
+15 - 1 min
 
-Finir sobrement :
-« Notre valeur n'est pas d'avoir tout industrialisé, mais d'avoir pris des décisions solides, mesuré leurs effets et documenté nos limites. »
+Synthèse finale :
+STORM n'est pas qu'un repo de code, c'est une preuve de concept mesurée et capable de scaler si on y met le prix.
 
 Passage aux questions :
-« On est prêts à répondre sur la sécurité, la charge, la reprise après incident ou le budget. »
+« Nous sommes prêts pour vos questions. »
 -->

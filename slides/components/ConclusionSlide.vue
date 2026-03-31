@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell conclusion-shell">
     <div class="header-minimal">
-      <p class="eyebrow">14 — Conclusion Finale</p>
+      <p class="eyebrow">15 — Conclusion Finale</p>
       <h2 class="section-title">STORM : Un socle robuste et mesurable</h2>
     </div>
 
