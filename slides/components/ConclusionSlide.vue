@@ -42,7 +42,6 @@ import { deckMeta } from "../data/content"
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white; /* Clean white background consistent with IntroCover */
 }
 
 .main-content {

@@ -106,13 +106,6 @@
         </div>
       </article>
     </div>
-
-    <div class="vision-banner shadow-sm">
-       <img src="https://api.iconify.design/carbon/quotes.svg?color=%2394a3b8" class="quote-icon"/>
-       <p class="banner-quote">
-         "STORM est un socle prêt pour l'industrialisation, <br/> pas seulement une maquette de laboratoire."
-       </p>
-    </div>
   </div>
 </template>
 
