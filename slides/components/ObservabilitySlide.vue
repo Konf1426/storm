@@ -5,8 +5,8 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">07 — Observabilité & SLOs</p>
-      <h2 class="section-title">Piloter la résilience en direct avec des données concrètes</h2>
+      <p class="eyebrow">07 — Performance et résilience</p>
+      <h2 class="section-title">Observabilité et SLOs pour piloter la résilience</h2>
     </div>
 
     <div class="obs-grid">

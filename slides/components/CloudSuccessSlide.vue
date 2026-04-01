@@ -5,8 +5,8 @@
 <template>
   <div class="page-shell bento-shell">
     <div class="bento-header">
-      <p class="eyebrow">13 — Azure Cloud : Étape 3</p>
-      <h2 class="section-title">Le Test Ultime : 10 000 VUs</h2>
+      <p class="eyebrow">13 — Scalabilité cloud, budget et limites</p>
+      <h2 class="section-title">Étape 3 : 10 000 VUs, coût réel et limites</h2>
     </div>
 
     <div class="bento-grid grid-success">

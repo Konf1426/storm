@@ -78,38 +78,38 @@ export const deckMeta = {
 export const presentationPlan: AgendaItem[] = [
   {
     index: "01",
-    title: "Démarche du projet",
-    detail: "Grandes phases de construction et méthode de travail",
+    title: "Contexte et objectifs",
+    detail: "Cible du sujet, contraintes et cap de conception",
   },
   {
     index: "02",
     title: "Architecture",
-    detail: "Vue d'ensemble du système, flux temps réel et composants clés",
+    detail: "Vue d'ensemble du systeme et circulation d'un message",
   },
   {
     index: "03",
     title: "Choix techniques",
-    detail: "Justification des technologies retenues et des compromis assumés",
+    detail: "Technologies retenues et compromis assumes",
   },
   {
     index: "04",
-    title: "Sécurité et qualité",
-    detail: "Authentification, protections applicatives, tests et couverture",
+    title: "Sécurité et tests",
+    detail: "Authentification, protections et couverture",
   },
   {
     index: "05",
-    title: "Performance et chaos",
-    detail: "Méthodologie k6, résultats sous charge et lecture de la résilience",
+    title: "Performance et résilience",
+    detail: "Methodologie k6, resultats sous charge et chaos",
   },
   {
     index: "06",
-    title: "Scalabilité et budget",
-    detail: "Projection cloud, contraintes de coûts et limites actuelles",
+    title: "Scalabilité cloud, budget et limites",
+    detail: "Montee en charge Azure, cout et limites assumees",
   },
   {
     index: "07",
-    title: "Conclusion et démo",
-    detail: "Synthèse, démonstration courte et ouverture sur les questions",
+    title: "Perspectives et conclusion",
+    detail: "Ouverture finale, synthese et passage aux questions",
   },
 ]
 

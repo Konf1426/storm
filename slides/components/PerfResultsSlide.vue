@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">09 — Résultats du Storm Day</p>
+      <p class="eyebrow">09 — Performance et résilience</p>
       <h2 class="section-title">Tenue sous charge : le système dégrade gracieusement</h2>
     </div>
 

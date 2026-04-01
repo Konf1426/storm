@@ -5,8 +5,8 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">08 — Méthodologie de test</p>
-      <h2 class="section-title">Notre approche : charger (k6), profiler (pprof), puis analyser</h2>
+      <p class="eyebrow">08 — Performance et résilience</p>
+      <h2 class="section-title">Méthodologie : charger avec k6, profiler avec pprof, puis analyser</h2>
     </div>
 
     <div class="perf-grid">

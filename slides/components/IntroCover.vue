@@ -26,16 +26,6 @@ import { deckMeta, objectives } from "../data/content"
           <p class="target-note">{{ obj.note }}</p>
         </article>
       </div>
-
-      <div class="tech-stack-footer">
-        <div class="tech-item"><img src="https://api.iconify.design/logos/go.svg" class="tech-icon"/></div>
-        <div class="tech-item"><img src="https://api.iconify.design/logos/nats-icon.svg" class="tech-icon"/></div>
-        <div class="tech-item"><img src="https://api.iconify.design/logos/postgresql.svg" class="tech-icon"/></div>
-        <div class="tech-item"><img src="https://api.iconify.design/logos/redis.svg" class="tech-icon"/></div>
-        <div class="tech-item"><img src="https://api.iconify.design/logos/prometheus.svg" class="tech-icon"/></div>
-        <div class="tech-item"><img src="https://api.iconify.design/logos/grafana.svg" class="tech-icon"/></div>
-        <div class="tech-item"><img src="https://api.iconify.design/logos/docker-icon.svg" class="tech-icon"/></div>
-      </div>
     </div>
   </div>
 </template>
@@ -44,8 +34,8 @@ import { deckMeta, objectives } from "../data/content"
 .intro-shell {
   height: 100%;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
 }
 
 .intro-centered {
@@ -53,21 +43,22 @@ import { deckMeta, objectives } from "../data/content"
   width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 2.5rem;
+  align-items: flex-start;
+  text-align: left;
+  gap: 1.8rem;
 }
 
 .intro-eyebrow-line {
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .team-pills {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 .team-pill {
   font-size: 0.65rem;
@@ -82,7 +73,7 @@ import { deckMeta, objectives } from "../data/content"
 .hero-block {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
 }
 
@@ -105,13 +96,14 @@ import { deckMeta, objectives } from "../data/content"
   text-transform: uppercase;
   letter-spacing: 0.2em;
   margin-top: 0.5rem;
+  text-align: left;
 }
 
 .hero-divider {
   width: 60px;
   height: 4px;
   background: var(--storm-orange);
-  margin: 1.5rem 0;
+  margin: 1.1rem 0 1.25rem;
   border-radius: 2px;
 }
 
@@ -121,6 +113,7 @@ import { deckMeta, objectives } from "../data/content"
   max-width: 700px;
   line-height: 1.5;
   font-weight: 500;
+  margin: 0;
 }
 
 .targets-grid {
@@ -165,24 +158,5 @@ import { deckMeta, objectives } from "../data/content"
 .text-cyan { color: var(--storm-cyan); }
 .text-orange { color: var(--storm-orange); }
 .text-slate { color: var(--storm-slate); }
-
-.tech-stack-footer {
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
-  opacity: 0.6;
-  margin-top: 1rem;
-}
-
-.tech-icon {
-  height: 20px;
-  filter: grayscale(1);
-  transition: filter 0.3s ease, opacity 0.3s ease;
-}
-
-.tech-item:hover .tech-icon {
-  filter: grayscale(0);
-  opacity: 1;
-}
 </style>
 

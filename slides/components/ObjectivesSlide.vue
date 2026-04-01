@@ -34,8 +34,8 @@ const phases = [
 <template>
   <div class="page-shell obj-shell">
     <div class="obj-header">
-      <p class="eyebrow">03 — Objectifs du projet</p>
-      <h2 class="section-title">Notre Cap : De l'Architecture à la Résilience</h2>
+      <p class="eyebrow">03 — Contexte et objectifs</p>
+      <h2 class="section-title">Cadrer le sujet avant d'entrer dans la solution</h2>
     </div>
 
     <div class="obj-timeline">

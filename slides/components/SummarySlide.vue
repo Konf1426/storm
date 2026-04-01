@@ -2,12 +2,12 @@
 import { presentationPlan } from "../data/content"
 
 const icons = [
-  "carbon:pedestrian-child", // Démarche
+  "carbon:flag", // Contexte
   "carbon:flow-data",       // Architecture
   "carbon:settings-check",   // Choix techniques
-  "carbon:security",         // Sécurité
+  "carbon:security",         // Securite
   "carbon:chart-line-smooth",// Performance
-  "carbon:cloud-service-management", // Scalabilité
+  "carbon:cloud-service-management", // Cloud
   "carbon:presentation-file" // Conclusion
 ]
 </script>
@@ -31,7 +31,6 @@ const icons = [
               <div class="ag-index">{{ item.index }}</div>
               <div class="ag-text">
                 <h3 class="ag-title">{{ item.title }}</h3>
-                <p class="ag-detail">{{ item.detail }}</p>
               </div>
             </div>
           </article>
@@ -46,23 +45,23 @@ const icons = [
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .header-minimal {
-  text-align: center;
-  margin-bottom: 2rem;
+  text-align: left;
+  margin-bottom: 1.5rem;
 }
 
 .summary-layout-new {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: flex-start;
 }
 
 .agenda-col {
   width: 100%;
-  max-width: 900px;
+  max-width: 960px;
 }
 
 .agenda-timeline {
@@ -82,7 +81,7 @@ const icons = [
   align-items: center;
   gap: 1rem;
   background: white;
-  padding: 0.6rem 1rem;
+  padding: 0.78rem 1rem;
   border-radius: 12px;
   border: 1px solid #f1f5f9;
   box-shadow: 0 2px 8px rgba(0,0,0,0.02);
@@ -124,19 +123,12 @@ const icons = [
 .ag-text {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
 }
 
 .ag-title {
-  font-size: 0.9rem;
+  font-size: 0.96rem;
   font-weight: 700;
   color: var(--storm-ink);
-  margin: 0;
-}
-
-.ag-detail {
-  font-size: 0.72rem;
-  color: #64748b;
   margin: 0;
 }
 

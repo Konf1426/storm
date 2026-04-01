@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">10 — Chaos & Résilience</p>
+      <p class="eyebrow">10 — Performance et résilience</p>
       <h2 class="section-title">Mesurer la robustesse par l'injection de fautes</h2>
     </div>
 
@@ -66,13 +66,6 @@
         </div>
       </article>
     </div>
-
-    <div class="lesson-bar shadow-sm">
-       <div class="lesson-icon"><img src="https://api.iconify.design/carbon/idea.svg?color=%23f59e0b" style="width:16px;"/></div>
-       <div class="lesson-text">
-          <strong>Leçon apprise :</strong> "Un crash-test réussi n'est pas un test sans panne, c'est un test dont on gère le rétablissement automatique."
-       </div>
-    </div>
   </div>
 </template>
 
@@ -127,10 +120,4 @@
 }
 .res-icon { width: 14px; flex-shrink: 0; }
 
-.lesson-bar {
-  margin-top: 1.2rem; background: #fffbe3; border: 1px solid #fef3c7; border-radius: 10px;
-  display: flex; align-items: center; gap: 0.8rem; padding: 1rem 1.4rem;
-}
-.lesson-text { font-size: 0.75rem; color: #92400e; font-style: italic; }
-.lesson-text strong { font-style: normal; color: #78350f; font-weight: 700; }
 </style>

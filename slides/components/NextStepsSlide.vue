@@ -5,8 +5,8 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">14 — Prochaines Étapes</p>
-      <h2 class="section-title">Projection & Vision : franchir un nouveau cap</h2>
+      <p class="eyebrow">14 — Perspectives et conclusion</p>
+      <h2 class="section-title">Perspectives : franchir un nouveau cap</h2>
     </div>
 
     <div class="ns-bento">

@@ -5,8 +5,8 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">06 — Qualité & Sécurité</p>
-      <h2 class="section-title">Une défense en profondeur garantie par l'intégration continue</h2>
+      <p class="eyebrow">06 — Sécurité et tests</p>
+      <h2 class="section-title">Défense en profondeur, couverture et intégration continue</h2>
     </div>
 
     <div class="qs-grid">

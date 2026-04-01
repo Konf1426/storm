@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell bento-shell">
     <div class="bento-header">
-      <p class="eyebrow">05 — Détails techniques</p>
+      <p class="eyebrow">05 — Choix techniques</p>
       <h2 class="section-title">Anatomie du pipeline temps réel</h2>
     </div>
 
