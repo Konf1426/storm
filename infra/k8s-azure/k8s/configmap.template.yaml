@@ -10,7 +10,4 @@ data:
   PPROF_ADDR_GATEWAY: ":6060"
   PPROF_ADDR_MESSAGES: ":6061"
   SUBJECT: "storm.events"
-  CORS_ORIGIN: "http://localhost:5173"
-  BCRYPT_COST: "4"
-  DB_MAX_CONNS: "50"
-  WORKER_POOL_SIZE: "200"
+  CORS_ORIGIN: "https://example.com"

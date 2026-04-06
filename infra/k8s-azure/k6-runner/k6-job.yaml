@@ -14,15 +14,15 @@
 #      kubectl logs -f -l job-name=k6-load-test -n storm
 #
 # Adjust parallelism and TARGET_VUS to reach the desired total:
-#   4 pods × 25000 VUs = 100 000 connections
+#   20 pods × 1000 VUs = 20 000 connections
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: k6-load-test
   namespace: storm
 spec:
-  parallelism: 5
-  completions: 5
+  parallelism: 20
+  completions: 20
   backoffLimit: 0
   template:
     metadata:
@@ -49,8 +49,8 @@ spec:
               value: "1m"
           resources:
             requests:
-              cpu: "100m"
-              memory: "512Mi"
+              cpu: "10m"
+              memory: "256Mi"
             limits:
               cpu: "1"
               memory: "2Gi"

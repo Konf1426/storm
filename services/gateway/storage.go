@@ -27,7 +27,18 @@ type postgresStore struct {
 }
 
 func NewPostgresStore(ctx context.Context, dsn string) (Store, error) {
-	pool, err := pgxpool.New(ctx, dsn)
+	config, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, err
+	}
+	if maxStr := os.Getenv("DB_MAX_CONNS"); maxStr != "" {
+		if max, err := strconv.Atoi(maxStr); err == nil && max > 0 {
+			config.MaxConns = int32(max)
+		}
+	} else {
+		config.MaxConns = 10 // reasonable default if not specified
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, err
 	}
