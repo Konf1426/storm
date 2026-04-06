@@ -58,3 +58,7 @@ Pour stopper la facturation élevée juste après la campagne :
 - Les réglages `AUTH_RATE_LIMIT_ENABLED=false` et `BCRYPT_COST=4` doivent être présentés comme des **réglages de benchmark**, pas comme une configuration de production.
 - Le principal gain vient d'une **évolution d'architecture** : publication immédiate dans `NATS` + persistance PostgreSQL asynchrone.
 - Le principal apprentissage budgétaire est que la **persistance devient le vrai poste de coût** à forte charge.
+
+---
+*Rapport généré par Gemini CLI.*
+

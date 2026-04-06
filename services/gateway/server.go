@@ -653,15 +653,24 @@ func handleChannelMessagesCreate(nc NatsClient, store Store) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		msg, err := store.SaveChannelMessage(req.Context(), channelID, userID, payload)
-		if err != nil {
-			log.Printf("save message failed: %v", err)
-			http.Error(w, "save message failed: "+err.Error(), http.StatusInternalServerError)
-			return
+
+		// 1. Create a placeholder message for the NATS event
+		msg := Message{
+			ChannelID: channelID,
+			UserID:    userID,
+			Subject:   channelSubject(channelID),
+			CreatedAt: time.Now(),
 		}
+
+		// 2. Publish to NATS immediately for low latency real-time delivery
 		if err := publishChannelMessageEvent(nc, msg, payload); err != nil {
 			log.Printf("nats publish failed: %v", err)
 		}
+
+		// 3. Queue for DB save asynchronously via the existing worker pool
+		queueWSMessageSave(store, channelID, userID, payload)
+
+		// 4. Respond immediately to the sender
 		writeJSON(w, http.StatusCreated, msg)
 	}
 }
