@@ -78,23 +78,23 @@ export const deckMeta = {
 export const presentationPlan: AgendaItem[] = [
   {
     index: "01",
-    title: "Contexte et objectifs",
-    detail: "Cible du sujet, contraintes et cap de conception",
+    title: "Architecture",
+    detail: "Vue d'ensemble du système et circulation d'un message",
   },
   {
     index: "02",
-    title: "Architecture",
-    detail: "Vue d'ensemble du systeme et circulation d'un message",
+    title: "Choix techniques",
+    detail: "Technologies retenues et compromis assumés",
   },
   {
     index: "03",
-    title: "Choix techniques",
-    detail: "Technologies retenues et compromis assumes",
+    title: "Produit réel & notifications",
+    detail: "Messagerie concrète, feedback d'envoi et lecture en temps réel",
   },
   {
     index: "04",
-    title: "Produit reel & notifications",
-    detail: "Messagerie concrete, feedback d'envoi et lecture en temps reel",
+    title: "Démo live",
+    detail: "Démonstration de l'application en conditions réelles",
   },
   {
     index: "05",
@@ -104,17 +104,17 @@ export const presentationPlan: AgendaItem[] = [
   {
     index: "06",
     title: "Performance et résilience",
-    detail: "Observabilite, methodologie k6, resultats sous charge et chaos",
+    detail: "Observabilité, méthodologie k6, résultats sous charge et chaos",
   },
   {
     index: "07",
     title: "Scalabilité cloud, budget et limites",
-    detail: "Montee en charge Azure, cout et limites assumees",
+    detail: "Montée en charge Azure, coût et limites assumées",
   },
   {
     index: "08",
     title: "Perspectives et conclusion",
-    detail: "Ouverture finale, synthese et passage aux questions",
+    detail: "Ouverture finale, synthèse et passage aux questions",
   },
 ]
 export const objectives: Objective[] = [

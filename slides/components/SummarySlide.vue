@@ -2,14 +2,14 @@
 import { presentationPlan } from "../data/content"
 
 const icons = [
-  "carbon:flag", // Contexte
-  "carbon:flow-data",       // Architecture
-  "carbon:settings-check",   // Choix techniques
-  "carbon:notification",     // Produit
-  "carbon:security",         // Securite
-  "carbon:chart-line-smooth",// Performance
+  "carbon:flow-data",           // Architecture
+  "carbon:settings-check",      // Choix techniques
+  "carbon:notification",        // Produit
+  "carbon:play-filled-alt",     // Démo live
+  "carbon:security",            // Sécurité
+  "carbon:chart-line-smooth",   // Performance
   "carbon:cloud-service-management", // Cloud
-  "carbon:presentation-file" // Conclusion
+  "carbon:presentation-file"    // Conclusion
 ]
 </script>
 
@@ -21,7 +21,6 @@ const icons = [
     </div>
 
     <div class="summary-layout-new">
-      <!-- Agenda List -->
       <div class="agenda-col">
         <div class="agenda-timeline">
           <article v-for="(item, idx) in presentationPlan" :key="item.index" class="agenda-card">
@@ -71,12 +70,6 @@ const icons = [
   gap: 1rem;
 }
 
-.agenda-card:last-child {
-  grid-column: 1 / -1;
-  max-width: 440px;
-  margin: 0 auto;
-}
-
 .agenda-card {
   display: flex;
   align-items: center;
@@ -104,6 +97,7 @@ const icons = [
   justify-content: center;
   flex-shrink: 0;
 }
+
 .ag-icon { width: 18px; }
 
 .agenda-content {
@@ -132,65 +126,4 @@ const icons = [
   color: var(--storm-ink);
   margin: 0;
 }
-
-/* Sidebar */
-.summary-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.info-card {
-  padding: 1.5rem;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-}
-
-.sidebar-title {
-  font-size: 0.8rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #475569;
-  margin-bottom: 1.2rem;
-}
-
-.sidebar-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.sidebar-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.8rem;
-}
-
-.s-icon { width: 14px; margin-top: 3px; flex-shrink: 0; }
-.sidebar-list li span {
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: #334155;
-  line-height: 1.3;
-}
-
-.timing-badge {
-  background: white;
-  border: 1px solid #e2e8f0;
-  padding: 0.8rem 1rem;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-}
-
-.t-icon { width: 14px; }
 </style>
-

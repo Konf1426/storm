@@ -1,120 +1,171 @@
 <script setup lang="ts">
-// Demo & Fallback Slide
+// Slide – Live Demo backdrop. Shown while the presenter demos the app live.
 </script>
 
 <template>
-  <div class="page-shell">
-    <div class="header-minimal">
-      <p class="eyebrow">11 — Démo Live & Fallback</p>
-      <h2 class="section-title">Démonstration maîtrisée et plan de secours prêt</h2>
+  <div class="demo-backdrop">
+    <!-- Pulsing rings -->
+    <div class="ring ring-1"></div>
+    <div class="ring ring-2"></div>
+    <div class="ring ring-3"></div>
+
+    <!-- Center content -->
+    <div class="demo-center">
+      <div class="demo-icon-wrap">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+      </div>
+
+      <h1 class="demo-title">DÉMO LIVE</h1>
+      <div class="demo-divider"></div>
+      <p class="demo-sub">Application STORM — Messagerie temps réel</p>
     </div>
 
-    <div class="demo-grid">
-      <!-- Demo Script -->
-      <article class="clean-card shadow-sm">
-        <header class="card-head">
-          <div class="icon-box cyan-bg"><img src="https://api.iconify.design/carbon/screen.svg" class="icon-sm"/></div>
-          <h3 class="card-title">Script de Démonstration</h3>
-        </header>
-        <div class="card-body">
-          <ol class="demo-list">
-             <li>
-                <strong>Auth & Session</strong>
-                <span>Connexion sécurisée et émission des cookies HttpOnly.</span>
-             </li>
-             <li>
-                <strong>Temps Réel Broadcast</strong>
-                <span>Échange de messages instantané entre deux fenêtres via NATS.</span>
-             </li>
-             <li>
-                <strong>Persistance & Sync</strong>
-                <span>Vérification de l'insertion asynchrone en base PostgreSQL.</span>
-             </li>
-             <li>
-                <strong>Supervision Grafana</strong>
-                <span>Visualisation immédiate du pic de messages sur le dashboard.</span>
-             </li>
-          </ol>
-        </div>
-      </article>
-
-      <!-- Fallback -->
-      <article class="clean-card shadow-sm border-orange-light">
-        <header class="card-head">
-          <div class="icon-box orange-bg"><img src="https://api.iconify.design/carbon/life-buoy.svg" class="icon-sm"/></div>
-          <h3 class="card-title">Plan de Secours (Fallback)</h3>
-        </header>
-        <div class="card-body">
-          <p class="text-sm mb-4">En cas d'instabilité réseau ou serveur durant l'oral :</p>
-          <ul class="fallback-list">
-             <li v-click>
-                <strong>Preuves d'Exécution</strong>
-                <span>Résultats du Storm Day déjà versionnés et horodatés dans le repo.</span>
-             </li>
-             <li v-click>
-                <strong>Scripts d'Automatisation</strong>
-                <span>Présentation des scripts <code>perf-load.sh</code> et <code>storm-day-runner.sh</code>.</span>
-             </li>
-             <li v-click>
-                <strong>Analyse Post-Mortem</strong>
-                <span>Focus sur les métriques et logs capturés lors des derniers stress-tests.</span>
-             </li>
-          </ul>
-        </div>
-      </article>
-    </div>
-
-    <div class="demo-note shadow-sm">
-       <img src="https://api.iconify.design/carbon/information.svg?color=%230ea5e9" style="width:14px;"/>
-       <span>"On ne fait pas reposer la note sur un succès réseau, mais sur la solidité des preuves apportées."</span>
+    <!-- Bottom indicator -->
+    <div class="demo-indicator">
+      <span class="indicator-dot"></span>
+      <span class="indicator-text">Démonstration en cours</span>
     </div>
   </div>
 </template>
 
 <style scoped>
-.page-shell { display: flex; flex-direction: column; height: 100%; }
-.header-minimal { margin-bottom: 1rem; }
-
-.demo-grid {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 1.5rem;
-  flex-grow: 1;
+.demo-backdrop {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
-.clean-card {
-  background: white; border-radius: 12px; padding: 1.4rem;
-  display: flex; flex-direction: column; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03); border: 1px solid rgba(0,0,0,0.04);
+/* ── Pulsing concentric rings ── */
+.ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid rgba(13, 159, 184, 0.1);
+  animation: ringPulse 4s ease-in-out infinite;
 }
-.border-orange-light { border: 1px solid #fed7aa; background: #fffcf9; }
 
-.card-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.2rem; }
-.card-title { font-size: 1rem; font-weight: 700; color: var(--storm-ink); margin: 0; }
+.ring-1 {
+  width: 220px;
+  height: 220px;
+  border-color: rgba(13, 159, 184, 0.14);
+}
 
-.icon-box { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
-.icon-sm { width: 18px; filter: grayscale(1) brightness(0) invert(1); }
+.ring-2 {
+  width: 360px;
+  height: 360px;
+  animation-delay: 0.8s;
+  border-color: rgba(13, 159, 184, 0.08);
+}
 
-.cyan-bg { background: var(--storm-cyan); }
-.orange-bg { background: var(--storm-orange); }
+.ring-3 {
+  width: 520px;
+  height: 520px;
+  animation-delay: 1.6s;
+  border-color: rgba(13, 159, 184, 0.04);
+}
 
-.card-body { display: flex; flex-direction: column; flex-grow: 1; }
+@keyframes ringPulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.96); opacity: 0.3; }
+  50% { transform: translate(-50%, -50%) scale(1.04); opacity: 1; }
+}
 
-.demo-list { padding: 0 0 0 1.2rem; margin: 0; display: flex; flex-direction: column; gap: 1rem; }
-.demo-list li { font-size: 0.8rem; color: #475569; position: relative; }
-.demo-list li strong { display: block; color: var(--storm-ink); font-size: 0.85rem; }
-.demo-list li span { font-size: 0.75rem; color: #64748b; line-height: 1.4; }
+/* ── Center block ── */
+.demo-center {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+}
 
-.fallback-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 1.2rem; justify-content: center; flex-grow: 1; }
-.fallback-list li { background: white; border: 1px solid #f1f5f9; padding: 0.8rem; border-radius: 8px; display: flex; flex-direction: column; gap: 0.2rem; border-left: 3px solid var(--storm-orange); }
-.fallback-list strong { font-size: 0.8rem; color: var(--storm-ink); }
-.fallback-list span { font-size: 0.7rem; color: #64748b; line-height: 1.3; font-style: italic; }
+.demo-icon-wrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(13, 159, 184, 0.1);
+  border: 1px solid rgba(13, 159, 184, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--storm-cyan);
+  animation: iconGlow 3s ease-in-out infinite;
+}
 
-.text-sm { font-size: 0.75rem; color: #64748b; font-weight: 500; }
-.mb-4 { margin-bottom: 1rem; }
+@keyframes iconGlow {
+  0%, 100% { box-shadow: 0 0 16px rgba(13, 159, 184, 0.06); }
+  50% { box-shadow: 0 0 32px rgba(13, 159, 184, 0.18); }
+}
 
-.demo-note {
-  margin-top: 1.2rem; background: #f0f9ff; border: 1px solid #e0f2fe; border-radius: 8px;
-  padding: 0.8rem 1.2rem; display: flex; align-items: center; gap: 0.8rem;
-  font-size: 0.75rem; color: #0369a1; font-weight: 500; text-align: center; justify-content: center;
+.demo-title {
+  font-size: 3.6rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: var(--storm-ink);
+  margin: 0;
+  background: linear-gradient(135deg, #16222b 0%, #3f5560 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.demo-divider {
+  width: 60px;
+  height: 4px;
+  background: var(--storm-orange);
+  border-radius: 2px;
+}
+
+.demo-sub {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--storm-muted);
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+/* ── Bottom indicator ── */
+.demo-indicator {
+  position: absolute;
+  bottom: 1.8rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(22, 34, 43, 0.08);
+  background: rgba(255, 255, 255, 0.65);
+  padding: 0.35rem 0.85rem;
+  box-shadow: 0 10px 30px rgba(18, 28, 36, 0.06);
+}
+
+.indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--storm-cyan);
+  animation: blink 2s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.indicator-text {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--storm-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 </style>

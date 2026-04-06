@@ -82,7 +82,7 @@
          <div class="icon-box slate-bg flex-shrink-0"><img src="https://api.iconify.design/carbon/laptop.svg" class="icon-sm"/></div>
          <div class="disc-text">
             <strong>Environnement de test local (Docker Compose) :</strong> 
-            Les métriques qui suivent (diapo suivante) proviennent toutes de stress-tests isolés sur un environnement local unifié. Elles valident la résilience structurelle de notre architecture et l'absence de fuites, sans prétendre aux performances brutes d'un cluster Cloud horizontal.
+            Les métriques proviennent toutes de stress-tests isolés sur un environnement local unifié. Elles valident la résilience structurelle de notre architecture et l'absence de fuites, sans prétendre aux performances brutes d'un cluster Cloud horizontal.
          </div>
       </div>
     </div>

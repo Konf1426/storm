@@ -39,23 +39,6 @@ Transition :
 
 ---
 
-<ObjectivesSlide />
-
-<!--
-03 - 2 min
-
-Insister sur les 3 chiffres clés du sujet :
-100 000 connexions, 500 000 msg/s, budget ≤ 700 EUR.
-
-Dire clairement :
-« Ces chiffres servent de cap de conception. Aujourd'hui, on vous montre comment on s'en approche avec une architecture, des tests et un plan de scaling. »
-
-Transition :
-« Maintenant que la cible est posée, on passe à l'architecture réelle du repo. »
--->
-
----
-
 <ArchitectureFlow />
 
 <!--
@@ -83,7 +66,6 @@ Dérouler dans l'ordre :
 2. WebSocket — bidirectionnel, SSE retiré.
 3. NATS — pub/sub ultra-léger, zéro stockage.
 4. Postgres + Redis — séparation durable / éphémère.
-5. Observabilité — métriques natives dès le gateway.
 
 Transition :
 « L'architecture étant posée, on montre maintenant le produit réel et les feedbacks visibles pour l'utilisateur. »
@@ -105,7 +87,26 @@ Points à verbaliser :
 - Cette couche produit rend la démo plus crédible face au jury.
 
 Transition :
-« Maintenant qu'on a vu le produit réel, on revient aux garde-fous qualité et sécurité. »
+« On va maintenant vous faire une démo live de l'application. »
+-->
+
+---
+
+<DemoSlide />
+
+<!--
+Démo live — 3 à 5 min
+
+Faire la démo de l'application en live pendant que cette slide est affichée en fond.
+
+Points à montrer :
+1. Auth & Session — connexion sécurisée
+2. Envoi et réception de messages en temps réel (deux fenêtres)
+3. Notifications de lecture
+4. Dashboard Grafana si possible
+
+Transition :
+« Maintenant qu'on a vu le produit en action, on revient aux garde-fous qualité et sécurité. »
 -->
 
 ---

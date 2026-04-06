@@ -22,28 +22,6 @@
         </div>
         <div class="screenshot-frame">
           <img src="/storm-app-screenshot.png" alt="STORM Dashboard" class="app-screenshot" />
-          <!-- Callout overlays -->
-          <div class="callout callout-toast">
-            <div class="callout-line"></div>
-            <div class="callout-badge">
-              <span class="callout-num">1</span>
-              Toast de lecture
-            </div>
-          </div>
-          <div class="callout callout-feed">
-            <div class="callout-line"></div>
-            <div class="callout-badge">
-              <span class="callout-num">2</span>
-              Feed temps réel
-            </div>
-          </div>
-          <div class="callout callout-send">
-            <div class="callout-line"></div>
-            <div class="callout-badge">
-              <span class="callout-num">3</span>
-              Statut d'envoi
-            </div>
-          </div>
         </div>
       </div>
 
@@ -155,7 +133,7 @@
   position: relative;
   background: #f5f0e7;
   overflow: hidden;
-  max-height: 380px;
+  max-height: 540px;
 }
 
 .app-screenshot {

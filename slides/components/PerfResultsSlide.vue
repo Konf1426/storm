@@ -45,15 +45,24 @@
           <h3 class="card-title">Débit Requêtes HTTP</h3>
         </header>
         <div class="card-body">
-          <div class="metric-value-box">
-            <span class="huge-val">2 502</span>
-            <span class="unit-val">req/s</span>
+          <div class="metric-trend">
+            <div class="trend-item">
+              <span class="trend-bar bar-cyan" style="height: 37%"></span>
+              <span class="trend-val">923</span>
+              <span class="trend-label">Warmup</span>
+            </div>
+            <div class="trend-item">
+              <span class="trend-bar bar-cyan peak" style="height: 100%"></span>
+              <span class="trend-val text-cyan">2 502</span>
+              <span class="trend-label">Spike 1</span>
+            </div>
+            <div class="trend-item">
+              <span class="trend-bar bar-cyan" style="height: 80%"></span>
+              <span class="trend-val">2 008</span>
+              <span class="trend-label">Chaos</span>
+            </div>
           </div>
-          <div class="mini-stats">
-            <div class="ms-row"><span>Error Rate</span> <span class="text-green">0.00%</span></div>
-            <div class="ms-row"><span>Success (2xx)</span> <span>100%</span></div>
-          </div>
-          <p class="text-xs mt-auto">Stabilité parfaite de la couche Auth/Gateway sous un débit soutenu.</p>
+          <p class="text-xs mt-auto">req/s · Error rate 0 % sur les 3 phases — stabilité Auth/Gateway confirmée.</p>
         </div>
       </article>
 
@@ -64,15 +73,24 @@
           <h3 class="card-title">Débit Messages WebSocket</h3>
         </header>
         <div class="card-body">
-          <div class="metric-value-box">
-            <span class="huge-val">171.4K</span>
-            <span class="unit-val">msg/s</span>
+          <div class="metric-trend">
+            <div class="trend-item">
+              <span class="trend-bar bar-purple" style="height: 14%"></span>
+              <span class="trend-val">23.4K</span>
+              <span class="trend-label">Warmup</span>
+            </div>
+            <div class="trend-item">
+              <span class="trend-bar bar-purple" style="height: 85%"></span>
+              <span class="trend-val">145K</span>
+              <span class="trend-label">Spike 1</span>
+            </div>
+            <div class="trend-item">
+              <span class="trend-bar bar-purple peak" style="height: 100%"></span>
+              <span class="trend-val text-purple">171.4K</span>
+              <span class="trend-label">Chaos</span>
+            </div>
           </div>
-          <div class="mini-stats">
-            <div class="ms-row"><span>Broadcasting</span> <span class="text-purple">NATS Pub/Sub</span></div>
-            <div class="ms-row"><span>Connect p95</span> <span>28.4ms</span></div>
-          </div>
-          <p class="text-xs mt-auto">Le bus NATS garantit une distribution instantanée même en pic de charge.</p>
+          <p class="text-xs mt-auto">msg/s · Le bus NATS scale linéairement avec la charge, même sous injection de pannes.</p>
         </div>
       </article>
 
@@ -135,9 +153,14 @@
 .trend-item { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 30%; }
 .trend-bar { width: 100%; background: #e2e8f0; border-radius: 4px 4px 0 0; transition: height 0.3s ease; }
 .trend-bar.peak { background: #fdba74; }
+.bar-cyan { background: #a5f3fc; }
+.bar-cyan.peak { background: #06b6d4; }
+.bar-purple { background: #ddd6fe; }
+.bar-purple.peak { background: #8b5cf6; }
 .trend-val { font-family: monospace; font-size: 0.65rem; font-weight: 700; color: #475569; }
 .trend-label { font-size: 0.55rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; }
 .text-orange { color: #f97316; }
+.text-cyan { color: #06b6d4; }
 
 /* Huge Value Display */
 .metric-value-box { text-align: center; padding: 0.5rem 0; }

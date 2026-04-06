@@ -117,27 +117,6 @@
         </div>
       </article>
 
-      <!-- Supervision (En bas à droite) -->
-      <article class="bento-card bento-obs">
-        <div class="bento-card-header">
-          <div class="bento-icon cyan-glow"><img src="/icons/prometheus.svg" style="width:16px;filter:grayscale(1) brightness(0);"/></div>
-          <h3>Observabilité</h3>
-        </div>
-        <p class="bento-desc">
-          Métriques Go exposées sur `/metrics`.
-        </p>
-        <div class="obs-visual">
-          <span class="metric-name">storm_active_websockets</span>
-          <div class="sparkline">
-            <div class="spark-bar" style="height: 30%"></div>
-            <div class="spark-bar" style="height: 45%"></div>
-            <div class="spark-bar" style="height: 60%"></div>
-            <div class="spark-bar" style="height: 50%"></div>
-            <div class="spark-bar" style="height: 80%"></div>
-            <div class="spark-bar" style="height: 100%; background: var(--storm-orange)"></div>
-          </div>
-        </div>
-      </article>
     </div>
   </div>
 </template>
@@ -159,16 +138,15 @@
 .bento-grid {
   display: grid;
   flex-grow: 1;
-  grid-template-columns: 1.25fr 1fr 1fr;
+  grid-template-columns: 1.25fr 1fr;
   grid-template-rows: 1fr 1fr;
   gap: 0.8rem;
   min-height: 0;
 }
 
 .bento-auth { grid-column: 1; grid-row: 1 / 3; }
-.bento-rt { grid-column: 2 / 4; grid-row: 1; }
+.bento-rt { grid-column: 2; grid-row: 1; }
 .bento-db { grid-column: 2; grid-row: 2; }
-.bento-obs { grid-column: 3; grid-row: 2; }
 
 .bento-card {
   background: var(--storm-surface-strong);
@@ -449,47 +427,13 @@
   opacity: 0.5;
 }
 
-/* -- Observability Visual -- */
-.obs-visual {
-  margin-top: auto;
-  background: #11181c;
-  border-radius: 8px;
-  padding: 0.5rem;
-}
-
-.metric-name {
-  color: #c9d1d9;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.55rem;
-  margin-bottom: 0.3rem;
-  display: block;
-}
-
-.sparkline {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 24px;
-}
-
-.spark-bar {
-  flex-grow: 1;
-  background: var(--storm-cyan);
-  border-radius: 2px 2px 0 0;
-  opacity: 0.8;
-  transition: height 0.3s ease;
-}
-
-.sparkline:hover .spark-bar {
-  opacity: 1;
-}
 
 @media (max-width: 840px) {
   .bento-grid {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
   }
-  .bento-auth, .bento-rt, .bento-db, .bento-obs {
+  .bento-auth, .bento-rt, .bento-db {
     grid-column: 1; grid-row: auto;
   }
 }
