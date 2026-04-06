@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell bento-shell">
     <div class="bento-header">
-      <p class="eyebrow">12 — Scalabilité cloud, budget et limites</p>
+      <p class="eyebrow">14 — Scalabilité cloud, budget et limites</p>
       <h2 class="section-title">Étape 2 : 5 000 VUs et pivot d'architecture</h2>
     </div>
 
@@ -160,3 +160,4 @@
 .text-slate { color: var(--storm-slate) !important; font-family: var(--storm-font); }
 .mt-auto { margin-top: auto; }
 </style>
+

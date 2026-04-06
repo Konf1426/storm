@@ -93,26 +93,30 @@ export const presentationPlan: AgendaItem[] = [
   },
   {
     index: "04",
+    title: "Produit reel & notifications",
+    detail: "Messagerie concrete, feedback d'envoi et lecture en temps reel",
+  },
+  {
+    index: "05",
     title: "Sécurité et tests",
     detail: "Authentification, protections et couverture",
   },
   {
-    index: "05",
+    index: "06",
     title: "Performance et résilience",
-    detail: "Methodologie k6, resultats sous charge et chaos",
+    detail: "Observabilite, methodologie k6, resultats sous charge et chaos",
   },
   {
-    index: "06",
+    index: "07",
     title: "Scalabilité cloud, budget et limites",
     detail: "Montee en charge Azure, cout et limites assumees",
   },
   {
-    index: "07",
+    index: "08",
     title: "Perspectives et conclusion",
     detail: "Ouverture finale, synthese et passage aux questions",
   },
 ]
-
 export const objectives: Objective[] = [
   {
     label: "Connexions simultanées",
@@ -519,3 +523,4 @@ export const sources = {
   azureLoadTest: ["docs/azure-load-test-final-report.md", "docs/azure-deployment.md", "docs/perf-scale-plan.md"],
   api: ["docs/api/openapi.yml", "services/gateway/server.go"],
 }
+

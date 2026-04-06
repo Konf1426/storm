@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">09 — Performance et résilience</p>
+      <p class="eyebrow">11 — Performance et résilience</p>
       <h2 class="section-title">Tenue sous charge : le système dégrade gracieusement</h2>
     </div>
 
@@ -164,3 +164,4 @@
 .summary-item span { font-size: 0.72rem; color: #475569; line-height: 1.3; }
 .summary-item strong { color: var(--storm-ink); }
 </style>
+

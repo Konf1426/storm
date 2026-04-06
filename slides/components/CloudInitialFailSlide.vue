@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell bento-shell">
     <div class="bento-header">
-      <p class="eyebrow">11 — Scalabilité cloud, budget et limites</p>
+      <p class="eyebrow">13 — Scalabilité cloud, budget et limites</p>
       <h2 class="section-title">Étape 1 : 1 000 VUs et premiers plafonds</h2>
     </div>
 
@@ -18,7 +18,7 @@
           <h3>Effondrement & Rate Limiting</h3>
         </div>
         <p class="bento-desc">
-          Le jour 1, le système n'est pas dimensionné pour le volume d'un testeur k6. Un garde-fou Azure bloque instantanément l'assaut HTTP.
+          Lors de la première campagne k6 sur Azure, le système n'est pas encore dimensionné pour ce volume. Un garde-fou Azure bloque instantanément l'assaut HTTP.
         </p>
         
         <div class="rl-visual">
@@ -181,3 +181,4 @@
 .mv-budget { background: #11181c; padding: 0.3rem 0.5rem; border-radius: 6px; color: white !important; }
 .mv-budget .mv-val { color: var(--storm-cyan) !important; font-size: 0.8rem; }
 </style>
+

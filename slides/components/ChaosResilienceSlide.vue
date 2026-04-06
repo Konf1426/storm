@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">10 — Performance et résilience</p>
+      <p class="eyebrow">12 — Performance et résilience</p>
       <h2 class="section-title">Mesurer la robustesse par l'injection de fautes</h2>
     </div>
 
@@ -121,3 +121,4 @@
 .res-icon { width: 14px; flex-shrink: 0; }
 
 </style>
+

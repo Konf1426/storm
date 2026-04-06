@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">14 — Perspectives et conclusion</p>
+      <p class="eyebrow">16 — Perspectives et conclusion</p>
       <h2 class="section-title">Perspectives : franchir un nouveau cap</h2>
     </div>
 
@@ -189,3 +189,4 @@
   margin: 0; text-align: center; line-height: 1.2;
 }
 </style>
+

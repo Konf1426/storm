@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">07 — Performance et résilience</p>
+      <p class="eyebrow">08 — Performance et résilience</p>
       <h2 class="section-title">Observabilité et SLOs pour piloter la résilience</h2>
     </div>
 
@@ -183,3 +183,4 @@
 .metric-line { display: flex; gap: 0.6rem; align-items: center; }
 .m-type { color: #8b5cf6; font-weight: 700; width: 50px; }
 </style>
+

@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell bento-shell">
     <div class="bento-header">
-      <p class="eyebrow">13 — Scalabilité cloud, budget et limites</p>
+      <p class="eyebrow">15 — Scalabilité cloud, budget et limites</p>
       <h2 class="section-title">Étape 3 : 10 000 VUs, coût réel et limites</h2>
     </div>
 
@@ -65,7 +65,7 @@
       <article class="bento-card bento-table">
         <div class="bento-card-header mb-1">
           <div class="bento-icon slate-glow"><img src="https://api.iconify.design/carbon/comparison.svg" style="width:14px;filter:grayscale(1) brightness(0);"/></div>
-          <h3>Synthèse des Trajectoires Azure (Perf vs Budget)</h3>
+          <h3>Synthèse Azure : coût de l'infra benchmarkée</h3>
         </div>
         
         <div class="storm-table-container">
@@ -208,3 +208,4 @@
 
 .bento-badge { font-family: var(--storm-font); font-size: 0.5rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.3rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
 </style>
+

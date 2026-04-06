@@ -86,18 +86,26 @@ Dérouler dans l'ordre :
 5. Observabilité — métriques natives dès le gateway.
 
 Transition :
-<!--
-05 - 2 min
+« L'architecture étant posée, on montre maintenant le produit réel et les feedbacks visibles pour l'utilisateur. »
+-->
 
-Dérouler dans l'ordre :
-1. Go — concurrence native et profilage intégré.
-2. WebSocket — bidirectionnel, SSE retiré.
-3. NATS — pub/sub ultra-léger, zéro stockage.
-4. Postgres + Redis — séparation durable / éphémère.
-5. Observabilité — métriques natives dès le gateway.
+---
+
+<ProjectFeatureSlide />
+
+<!--
+06 - 1 min 30
+
+Message clé :
+STORM n'est pas seulement une infra benchmarkée. C'est aussi une vraie messagerie avec channels, envoi, historique et feedback utilisateur.
+
+Points à verbaliser :
+- Feedback immédiat après envoi.
+- Notification de lecture visible en temps réel.
+- Cette couche produit rend la démo plus crédible face au jury.
 
 Transition :
-« L'architecture étant posée, on passe à la sécurité, parce qu'un temps réel sans garde-fous reste fragile. »
+« Maintenant qu'on a vu le produit réel, on revient aux garde-fous qualité et sécurité. »
 -->
 
 ---
@@ -105,7 +113,7 @@ Transition :
 <QualitySecuritySlide />
 
 <!--
-06 - 2 min
+07 - 2 min
 
 Point à faire passer :
 La couverture n'est pas juste un chiffre. Elle recouvre les parcours qui intéressent le jury : auth, refresh, logout, WebSocket, health checks, persistance.
@@ -119,7 +127,7 @@ Nuance :
 <ObservabilitySlide />
 
 <!--
-07 - 1 min 30
+08 - 1 min 30
 
 Faire simple :
 Quelles métriques on expose, à quoi elles servent, et quels SLOs elles permettent de vérifier.
@@ -133,13 +141,32 @@ Transition :
 <PerfMethodologySlide />
 
 <!--
-08 - 2 min
+09 - 2 min
 
 Bien cadrer la slide :
 Le message n'est pas « on a atteint les 100k en local ». Le message est « on a une méthode de test reproductible, de lecture des résultats et d'optimisation ».
 
 Transition :
-« On peut maintenant regarder les chiffres concrets à commenter. »
+« Avant les chiffres, on montre rapidement l'outil réel qui a servi à générer la charge. »
+-->
+
+---
+
+<K6ExecutionSlide />
+
+<!--
+10 - 1 min 30
+
+Message clé :
+On a vraiment utilisé k6 pour générer la charge, en local puis sur Azure, afin de garder la main sur le scénario et limiter les coûts.
+
+Points à verbaliser :
+- `scripts/perf-load.sh` pour les runs ciblés
+- `scripts/storm-day-runner.sh` pour les campagnes orchestrées
+- job Kubernetes k6 pour distribuer les VUs sur Azure
+
+Transition :
+« Une fois la méthode et l'outil posés, on peut lire les résultats obtenus sous charge. »
 -->
 
 ---
@@ -147,7 +174,7 @@ Transition :
 <PerfResultsSlide />
 
 <!--
-09 - 2 min 30
+11 - 2 min 30
 
 Conseil oral :
 Lire les trois graphiques comme une histoire : warm-up, montée en charge, puis scénario dégradé.
@@ -164,7 +191,7 @@ Transition :
 <ChaosResilienceSlide />
 
 <!--
-10 - 2 min
+12 - 2 min
 
 Bien assumer la nuance :
 Un crash test avec 0,36 % de succès HTTP pendant l'arrêt n'est pas un échec narratif. C'est la preuve qu'on mesure la panne et qu'on sait expliquer le rétablissement.
@@ -178,9 +205,9 @@ Transition :
 <CloudInitialFailSlide />
 
 <!--
-11 - 2 min
+13 - 2 min
 
-📉 Le Test de Départ (1 000 VUs) :
+Le test de départ (1 000 VUs) :
 Expliquer l'échec critique initial. Ce n'était pas un problème de code STORM, mais une sous-configuration Azure et un Rate Limiter trop agressif.
 - 99 % d'échecs.
 - Latence Login > 4s.
@@ -195,13 +222,13 @@ Transition :
 <CloudOptimizationSlide />
 
 <!--
-12 - 2 min
+14 - 2 min
 
-📈 Le Cap des 5 000 VUs (Optimisation) :
+Le cap des 5 000 VUs (optimisation) :
 Détailler le pivot technique :
 - Messages asynchrones (NATS libère la gateway).
 - Bcrypt Cost=4 (libère le CPU).
-Résultat : La latence message chute sous les 100ms. On commence à voir le potentiel.
+Résultat : la latence message chute sous les 100ms. On commence à voir le potentiel.
 
 Transition :
 « Pour valider la trajectoire finale du sujet, on a sorti l'artillerie lourde. »
@@ -212,9 +239,9 @@ Transition :
 <CloudSuccessSlide />
 
 <!--
-13 - 2 min
+15 - 2 min
 
-🚀 Le Test Ultime (10 000 VUs) :
+Le test ultime (10 000 VUs) :
 Commenter la configuration "Ultra" : 26 vCPUs multi-famille, DB 16 Cores.
 Résultat : 100 % de succès, 144ms de login médian. 210M de messages WebSocket.
 
@@ -230,7 +257,7 @@ Transition :
 <NextStepsSlide />
 
 <!--
-14 - 1 min
+16 - 1 min
 
 Présenter les axes d'amélioration comme des ouvertures stratégiques.
 
@@ -243,7 +270,7 @@ Transition :
 <ConclusionSlide />
 
 <!--
-15 - 1 min
+17 - 1 min
 
 Synthèse finale :
 STORM n'est pas qu'un repo de code, c'est une preuve de concept mesurée et capable de scaler si on y met le prix.

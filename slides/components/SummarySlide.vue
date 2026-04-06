@@ -5,6 +5,7 @@ const icons = [
   "carbon:flag", // Contexte
   "carbon:flow-data",       // Architecture
   "carbon:settings-check",   // Choix techniques
+  "carbon:notification",     // Produit
   "carbon:security",         // Securite
   "carbon:chart-line-smooth",// Performance
   "carbon:cloud-service-management", // Cloud

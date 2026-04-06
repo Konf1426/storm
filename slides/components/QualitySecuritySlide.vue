@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">06 — Sécurité et tests</p>
+      <p class="eyebrow">07 — Sécurité et tests</p>
       <h2 class="section-title">Défense en profondeur, couverture et intégration continue</h2>
     </div>
 
@@ -167,3 +167,4 @@
 .border-red { border-left: 3px solid #ef4444; }
 .border-purple { border-left: 3px solid #8b5cf6; }
 </style>
+

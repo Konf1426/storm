@@ -5,7 +5,7 @@
 <template>
   <div class="page-shell">
     <div class="header-minimal">
-      <p class="eyebrow">08 — Performance et résilience</p>
+      <p class="eyebrow">09 — Performance et résilience</p>
       <h2 class="section-title">Méthodologie : charger avec k6, profiler avec pprof, puis analyser</h2>
     </div>
 
@@ -197,3 +197,4 @@
 }
 .disc-text strong { color: var(--storm-ink); }
 </style>
+
