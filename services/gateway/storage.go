@@ -27,7 +27,18 @@ type postgresStore struct {
 }
 
 func NewPostgresStore(ctx context.Context, dsn string) (Store, error) {
-	pool, err := pgxpool.New(ctx, dsn)
+	config, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, err
+	}
+	if maxStr := os.Getenv("DB_MAX_CONNS"); maxStr != "" {
+		if max, err := strconv.Atoi(maxStr); err == nil && max > 0 {
+			config.MaxConns = int32(max)
+		}
+	} else {
+		config.MaxConns = 10 // reasonable default if not specified
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -59,13 +70,13 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS channels (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
-  created_by TEXT NOT NULL REFERENCES users(id),
+  created_by TEXT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS channel_members (
   channel_id BIGINT NOT NULL REFERENCES channels(id),
-  user_id TEXT NOT NULL REFERENCES users(id),
+  user_id TEXT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (channel_id, user_id)
 );
@@ -73,7 +84,7 @@ CREATE TABLE IF NOT EXISTS channel_members (
 CREATE TABLE IF NOT EXISTS messages (
   id BIGSERIAL PRIMARY KEY,
   channel_id BIGINT NULL REFERENCES channels(id),
-  user_id TEXT NULL REFERENCES users(id),
+  user_id TEXT NULL REFERENCES users(id) ON UPDATE CASCADE,
   subject TEXT NOT NULL,
   payload BYTEA NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -81,7 +92,7 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   token TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES users(id),
+  user_id TEXT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
   expires_at TIMESTAMPTZ NOT NULL,
   revoked BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -91,6 +102,22 @@ ALTER TABLE messages ADD COLUMN IF NOT EXISTS channel_id BIGINT NULL;
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS user_id TEXT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT NOT NULL DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';
+ALTER TABLE channels DROP CONSTRAINT IF EXISTS channels_created_by_fkey;
+ALTER TABLE channels
+  ADD CONSTRAINT channels_created_by_fkey
+  FOREIGN KEY (created_by) REFERENCES users(id) ON UPDATE CASCADE;
+ALTER TABLE channel_members DROP CONSTRAINT IF EXISTS channel_members_user_id_fkey;
+ALTER TABLE channel_members
+  ADD CONSTRAINT channel_members_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE;
+ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_user_id_fkey;
+ALTER TABLE messages
+  ADD CONSTRAINT messages_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE;
+ALTER TABLE refresh_tokens DROP CONSTRAINT IF EXISTS refresh_tokens_user_id_fkey;
+ALTER TABLE refresh_tokens
+  ADD CONSTRAINT refresh_tokens_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE;
 `)
 	return err
 }
@@ -156,10 +183,19 @@ func (s *postgresStore) UpdateUser(ctx context.Context, userID, displayName, pas
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
+	updatedUserID := userID
 	if displayName != "" {
-		_, err := s.pool.Exec(ctx, `UPDATE users SET display_name = $1 WHERE id = $2`, displayName, userID)
-		if err != nil {
-			return User{}, err
+		if displayName != userID {
+			_, err := s.pool.Exec(ctx, `UPDATE users SET id = $1, display_name = $2 WHERE id = $3`, displayName, displayName, userID)
+			if err != nil {
+				return User{}, err
+			}
+			updatedUserID = displayName
+		} else {
+			_, err := s.pool.Exec(ctx, `UPDATE users SET display_name = $1 WHERE id = $2`, displayName, userID)
+			if err != nil {
+				return User{}, err
+			}
 		}
 	}
 	if password != "" {
@@ -167,13 +203,13 @@ func (s *postgresStore) UpdateUser(ctx context.Context, userID, displayName, pas
 		if err != nil {
 			return User{}, err
 		}
-		_, err = s.pool.Exec(ctx, `UPDATE users SET password_hash = $1 WHERE id = $2`, string(hash), userID)
+		_, err = s.pool.Exec(ctx, `UPDATE users SET password_hash = $1 WHERE id = $2`, string(hash), updatedUserID)
 		if err != nil {
 			return User{}, err
 		}
 	}
 
-	return s.GetUser(ctx, userID)
+	return s.GetUser(ctx, updatedUserID)
 }
 
 func (s *postgresStore) DeleteUser(ctx context.Context, userID string) error {
@@ -190,7 +226,13 @@ func (s *postgresStore) VerifyUserPassword(ctx context.Context, userID, password
 
 	var hash string
 	var user User
-	err := s.pool.QueryRow(ctx, `SELECT id, password_hash, display_name, created_at FROM users WHERE id = $1`, userID).
+	err := s.pool.QueryRow(ctx, `
+SELECT id, password_hash, display_name, created_at
+FROM users
+WHERE id = $1 OR display_name = $1
+ORDER BY CASE WHEN id = $1 THEN 0 ELSE 1 END
+LIMIT 1
+`, userID).
 		Scan(&user.ID, &hash, &user.DisplayName, &user.CreatedAt)
 	if err != nil {
 		return User{}, err
@@ -202,7 +244,8 @@ func (s *postgresStore) VerifyUserPassword(ctx context.Context, userID, password
 }
 
 func (s *postgresStore) SaveRefreshToken(ctx context.Context, userID, token string, expiresAt time.Time) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	maybeSimulateDelay()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	_, err := s.pool.Exec(ctx, `
@@ -277,7 +320,8 @@ ON CONFLICT DO NOTHING
 }
 
 func (s *postgresStore) SaveChannelMessage(ctx context.Context, channelID int64, userID string, payload []byte) (Message, error) {
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	maybeSimulateDelay()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	subject := channelSubject(channelID)
@@ -387,4 +431,12 @@ func getBcryptCost() int {
 		return bcrypt.DefaultCost
 	}
 	return cost
+}
+
+func maybeSimulateDelay() {
+	if v := os.Getenv("SIMULATE_DB_DELAY"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			time.Sleep(d)
+		}
+	}
 }

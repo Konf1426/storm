@@ -1,5 +1,14 @@
 ﻿<template>
   <div class="min-h-screen">
+    <div class="pointer-events-none fixed inset-x-0 top-6 z-50 flex flex-col items-center gap-3 px-4">
+      <div
+        v-for="toast in receiptToasts"
+        :key="toast.id"
+        class="w-full max-w-md rounded-2xl border border-sky-200 bg-white/95 px-4 py-3 shadow-xl backdrop-blur animate-in fade-in slide-in-from-top-3"
+      >
+        <p class="text-sm font-medium text-sky-950">{{ toast.text }}</p>
+      </div>
+    </div>
     <header class="px-6 pt-10 pb-6 lg:px-12">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -19,6 +28,15 @@
           <Badge variant="outline">{{ recentRate }} / 10s</Badge>
         </div>
       </div>
+      <div v-if="globalError" class="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-sm font-medium text-red-800">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-circle"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+            {{ globalError }}
+          </div>
+          <Button variant="ghost" size="sm" class="h-8 px-2 text-red-800 hover:bg-red-100" @click="globalError = ''">Dismiss</Button>
+        </div>
+      </div>
     </header>
 
     <main class="px-6 pb-16 lg:px-12">
@@ -33,12 +51,12 @@
           <CardContent>
             <div class="space-y-4">
               <div>
-                <label class="text-sm font-medium text-foreground">User ID</label>
-                <Input v-model="loginUser" placeholder="user-1" />
+                <label for="login-user" class="text-sm font-medium text-foreground">User ID</label>
+                <Input id="login-user" v-model="loginUser" placeholder="user-1" />
               </div>
               <div>
-                <label class="text-sm font-medium text-foreground">Password</label>
-                <Input v-model="loginPassword" type="password" placeholder="••••••" />
+                <label for="login-password" class="text-sm font-medium text-foreground">Password</label>
+                <Input id="login-password" v-model="loginPassword" type="password" placeholder="••••••" />
               </div>
               <div class="flex flex-wrap gap-3">
                 <Button @click="login">Login</Button>
@@ -70,20 +88,21 @@
           <CardContent>
             <div class="space-y-4">
               <div>
-                <label class="text-sm font-medium text-foreground">Gateway URL</label>
-                <Input v-model="gatewayUrl" placeholder="http://localhost:8080" />
+                <label for="gateway-url" class="text-sm font-medium text-foreground">Gateway URL</label>
+                <Input id="gateway-url" v-model="gatewayUrl" placeholder="http://localhost:8080" />
               </div>
               <div v-if="!selectedChannelId">
-                <label class="text-sm font-medium text-foreground">Subject</label>
-                <Input v-model="subject" placeholder="storm.events" />
+                <label for="message-subject" class="text-sm font-medium text-foreground">Subject</label>
+                <Input id="message-subject" v-model="subject" placeholder="storm.events" />
                 <p class="mt-1 text-xs text-muted-foreground">
                   Used only when no channel is selected.
                 </p>
               </div>
               <div>
-                <label class="text-sm font-medium text-foreground">Channel</label>
+                <label for="channel-select" class="text-sm font-medium text-foreground">Channel</label>
                 <div class="mt-2 flex flex-wrap gap-2">
                   <select
+                    id="channel-select"
                     v-model="selectedChannelId"
                     class="w-full rounded-2xl border border-border bg-white/90 px-4 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
                   >
@@ -92,7 +111,7 @@
                       {{ channel.name }} (#{{ channel.id }})
                     </option>
                   </select>
-                  <Input v-model="newChannelName" placeholder="new channel name" />
+                  <Input id="new-channel-name" v-model="newChannelName" placeholder="new channel name" />
                   <Button variant="outline" @click="createChannel">Create channel</Button>
                 </div>
                 <div class="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -143,8 +162,17 @@
             </div>
             <div class="mt-4 flex flex-col gap-3">
               <div>
-                <label class="text-sm font-medium text-foreground">Message</label>
-                <Input v-model="messageText" placeholder="type your message" />
+                <label for="message-input" class="text-sm font-medium text-foreground">Message</label>
+                <Textarea
+                  id="message-input"
+                  v-model="messageText"
+                  rows="3"
+                  placeholder="type your message"
+                  @keydown="handleMessageKeydown"
+                />
+                <p class="mt-1 text-xs text-muted-foreground">
+                  Enter to send. Shift+Enter for a new line.
+                </p>
               </div>
               <div class="flex flex-wrap items-center gap-3">
                 <Button @click="sendMessage">Send</Button>
@@ -156,6 +184,35 @@
       </div>
 
       <div v-if="authenticated" class="mt-8 grid gap-6 lg:grid-cols-3">
+        <Card class="lg:col-span-3">
+          <CardHeader>
+            <div>
+              <p class="text-sm font-mono uppercase tracking-[0.2em] text-muted-foreground">Account</p>
+              <h3 class="text-xl font-semibold">My profile</h3>
+              <p class="mt-1 text-sm text-muted-foreground">
+                Update your display name, change your password, or delete your account.
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div class="grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
+              <div>
+                <label for="profile-display-name" class="text-sm font-medium text-foreground">Display name</label>
+                <Input id="profile-display-name" v-model="profileDisplayName" placeholder="Your public name" />
+              </div>
+              <div>
+                <label for="profile-password" class="text-sm font-medium text-foreground">New password</label>
+                <Input id="profile-password" v-model="profilePassword" type="password" placeholder="Leave empty to keep current password" />
+              </div>
+              <div class="flex flex-wrap items-end gap-3">
+                <Button @click="updateProfile">Save profile</Button>
+                <Button variant="outline" @click="logout">Logout</Button>
+                <Button variant="ghost" class="text-red-700 hover:bg-red-50" @click="deleteAccount">Delete account</Button>
+              </div>
+            </div>
+            <p class="mt-3 text-sm text-muted-foreground">{{ profileStatus }}</p>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <p class="text-sm font-mono uppercase tracking-[0.2em] text-muted-foreground">Connection</p>
@@ -200,31 +257,41 @@ import Card from "./components/ui/Card.vue"
 import CardContent from "./components/ui/CardContent.vue"
 import CardHeader from "./components/ui/CardHeader.vue"
 import Input from "./components/ui/Input.vue"
+import Textarea from "./components/ui/Textarea.vue"
 
 const gatewayUrl = ref(import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080")
 const subject = ref("storm.events")
 const messageText = ref("")
 const publishStatus = ref("")
 const authStatus = ref("")
+const globalError = ref("")
 const connected = ref(false)
 const lastEventAt = ref("")
 const messages = ref([])
+const receiptToasts = ref([])
 const recentWindow = ref([])
 let stream = null
 let nextId = 1
+let nextToastId = 1
 let intervalId = null
 let refreshTimer = null
 let reconnectTimer = null
 const feedRef = ref(null)
+const sentReadReceipts = new Set()
 
 const channels = ref([])
 const selectedChannelId = ref("")
 const newChannelName = ref("")
+const usersById = ref({})
 
 const authenticated = ref(false)
 const currentUser = ref("")
+const currentDisplayName = ref("")
 const loginUser = ref("")
 const loginPassword = ref("")
+const profileDisplayName = ref("")
+const profilePassword = ref("")
+const profileStatus = ref("")
 
 const connectionHint = computed(() =>
   connected.value
@@ -234,15 +301,30 @@ const connectionHint = computed(() =>
 
 const recentRate = computed(() => recentWindow.value.length)
 
+const addReceiptToast = (text) => {
+  const id = nextToastId++
+  receiptToasts.value = [...receiptToasts.value, { id, text }]
+  setTimeout(() => {
+    receiptToasts.value = receiptToasts.value.filter((toast) => toast.id !== id)
+  }, 4000)
+}
+
 const pushEvent = (text) => {
-  const parsed = parseMessage(text)
+  const parsed = parseIncomingEvent(text)
+  if (parsed.type === "read_receipt") {
+    handleReadReceipt(parsed)
+    return
+  }
   const now = new Date()
   const entry = {
     id: nextId++,
+    messageId: parsed.messageId || null,
+    authorId: parsed.authorId || "",
+    messageBody: parsed.message || "",
     time: now.toLocaleTimeString(),
     date: now.toLocaleDateString(),
-    text: parsed.text,
-    own: parsed.author && parsed.author === currentUser.value,
+    text: formatMessageText(parsed.authorId, parsed.message, parsed.fallbackAuthor),
+    own: parsed.authorId && parsed.authorId === currentUser.value,
     bytes: new TextEncoder().encode(text).length,
   }
   const shouldStick = isNearBottom()
@@ -255,6 +337,25 @@ const pushEvent = (text) => {
   pruneWindow()
   if (shouldStick) {
     scrollToBottom()
+  }
+  markMessageAsRead(entry.messageId, entry.authorId)
+}
+
+const loadUsers = async () => {
+  try {
+    const res = await fetch(`${gatewayUrl.value}/users`, {
+      credentials: "include",
+    })
+    if (!res.ok) {
+      await handleApiError(res)
+      return
+    }
+    const users = await res.json()
+    usersById.value = Object.fromEntries(
+      users.map((user) => [user.id, user.display_name || user.id])
+    )
+  } catch (err) {
+    console.error("Failed to load users", err)
   }
 }
 
@@ -310,12 +411,45 @@ const disconnectStream = () => {
   connected.value = false
 }
 
+const handleApiError = async (res) => {
+  const status = res.status;
+  let message = "";
+  try {
+    message = await res.text();
+  } catch (e) {
+    console.error("Failed to read API error body", e)
+    message = "Unknown error";
+  }
+
+  if (status === 429) {
+    globalError.value = "Slow down! You are being rate limited (429). Please wait a moment.";
+  } else if (status === 503) {
+    globalError.value = "Service temporarily unavailable (503). The backend might be overloaded.";
+  } else if (status === 401) {
+    globalError.value = "Session expired or invalid (401). Please login again.";
+    await logout();
+  } else if (status >= 500) {
+    globalError.value = `Server error (${status}): ${message || 'Check backend logs'}`;
+  } else {
+    globalError.value = `Error (${status}): ${message}`;
+  }
+  
+  // Clear error after 10 seconds automatically
+  setTimeout(() => {
+    if (globalError.value.includes(status.toString())) {
+      globalError.value = "";
+    }
+  }, 10000);
+}
+
 const sendMessage = async () => {
   publishStatus.value = "sending..."
+  globalError.value = ""
   try {
     let url = `${gatewayUrl.value}/publish?subject=${encodeURIComponent(subject.value)}`
     const payload = {
-      user: currentUser.value || "anonymous",
+      user_id: currentUser.value || "anonymous",
+      user: currentDisplayName.value || currentUser.value || "anonymous",
       message: messageText.value.trim(),
     }
     if (!payload.message) {
@@ -333,18 +467,29 @@ const sendMessage = async () => {
       body,
       credentials: "include",
     })
+    
     if (!res.ok) {
-      throw new Error(await res.text())
+      await handleApiError(res);
+      throw new Error("Failed to send");
     }
     messageText.value = ""
     publishStatus.value = "sent"
   } catch (err) {
-    publishStatus.value = `failed: ${err.message}`
+    console.error("Failed to send message", err)
+    publishStatus.value = `failed`
   } finally {
     setTimeout(() => {
       publishStatus.value = ""
     }, 2000)
   }
+}
+
+const handleMessageKeydown = async (event) => {
+  if (event.key !== "Enter" || event.shiftKey) {
+    return
+  }
+  event.preventDefault()
+  await sendMessage()
 }
 
 const loadChannels = async () => {
@@ -353,11 +498,12 @@ const loadChannels = async () => {
       credentials: "include",
     })
     if (!res.ok) {
-      throw new Error(await res.text())
+      await handleApiError(res);
+      return
     }
     channels.value = await res.json()
   } catch (err) {
-    publishStatus.value = `load failed: ${err.message}`
+    console.error("Failed to load channels", err)
   }
 }
 
@@ -372,26 +518,36 @@ const loadHistory = async () => {
       { credentials: "include" }
     )
     if (!res.ok) {
-      throw new Error(await res.text())
+      await handleApiError(res);
+      return
     }
     const history = await res.json()
     messages.value = history
       .slice()
       .reverse()
       .map((item) => {
-        const parsed = parseMessage(item.payload || "", item.user_id)
+        const parsed = parseIncomingEvent(item.payload || "", item.user_id, item.id)
         return {
           id: `history-${item.id}`,
+          messageId: item.id,
+          authorId: item.user_id || parsed.authorId || "",
+          messageBody: parsed.message || "",
           time: new Date(item.created_at).toLocaleTimeString(),
           date: new Date(item.created_at).toLocaleDateString(),
-          text: parsed.text,
-          own: parsed.author && parsed.author === currentUser.value,
+          text: formatMessageText(item.user_id || parsed.authorId, parsed.message, parsed.fallbackAuthor),
+          own: item.user_id && item.user_id === currentUser.value,
           bytes: (item.payload || "").length,
         }
       })
     scrollToBottom()
+    const latestUnread = history.find(
+      (item) => item.user_id && item.user_id !== currentUser.value
+    )
+    if (latestUnread) {
+      await markMessageAsRead(latestUnread.id, latestUnread.user_id)
+    }
   } catch (err) {
-    publishStatus.value = `history failed: ${err.message}`
+    console.error("Failed to load history", err)
   }
 }
 
@@ -410,7 +566,8 @@ const createChannel = async () => {
       body: JSON.stringify({ name: newChannelName.value.trim() }),
     })
     if (!res.ok) {
-      throw new Error(await res.text())
+      await handleApiError(res);
+      return
     }
     const channel = await res.json()
     newChannelName.value = ""
@@ -419,12 +576,13 @@ const createChannel = async () => {
     await loadHistory()
     connectStream()
   } catch (err) {
-    publishStatus.value = `create failed: ${err.message}`
+    console.error("Failed to create channel", err)
   }
 }
 
 const register = async () => {
   authStatus.value = "registering..."
+  globalError.value = ""
   try {
     const res = await fetch(`${gatewayUrl.value}/auth/register`, {
       method: "POST",
@@ -437,16 +595,19 @@ const register = async () => {
       }),
     })
     if (!res.ok) {
-      throw new Error(await res.text())
+      await handleApiError(res);
+      throw new Error("Register failed")
     }
     authStatus.value = "registered, please login"
   } catch (err) {
-    authStatus.value = `register failed: ${err.message}`
+    console.error("Register failed", err)
+    authStatus.value = `register failed`
   }
 }
 
 const login = async () => {
   authStatus.value = "logging in..."
+  globalError.value = ""
   try {
     const res = await fetch(`${gatewayUrl.value}/auth/login`, {
       method: "POST",
@@ -458,18 +619,24 @@ const login = async () => {
       }),
     })
     if (!res.ok) {
-      throw new Error(await res.text())
+      await handleApiError(res);
+      throw new Error("Login failed")
     }
     const user = await res.json()
     authenticated.value = true
     currentUser.value = user.id
+    currentDisplayName.value = user.display_name || user.id
+    profileDisplayName.value = user.display_name || user.id
+    profilePassword.value = ""
     authStatus.value = ""
+    await loadUsers()
     await loadChannels()
     await loadHistory()
     connectStream()
     scheduleRefresh()
   } catch (err) {
-    authStatus.value = `login failed: ${err.message}`
+    console.error("Login failed", err)
+    authStatus.value = `login failed`
   }
 }
 
@@ -480,35 +647,156 @@ const logout = async () => {
   })
   authenticated.value = false
   currentUser.value = ""
+  currentDisplayName.value = ""
+  usersById.value = {}
+  profileDisplayName.value = ""
+  profilePassword.value = ""
+  profileStatus.value = ""
   channels.value = []
   messages.value = []
+  receiptToasts.value = []
+  sentReadReceipts.clear()
   disconnectStream()
   if (refreshTimer) {
     clearInterval(refreshTimer)
   }
 }
 
-const refreshSession = async () => {
-  const res = await fetch(`${gatewayUrl.value}/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
-  })
-  if (res.ok) {
-    return true
+const markMessageAsRead = async (messageId, recipientUserId) => {
+  if (!authenticated.value || !selectedChannelId.value || !messageId || !recipientUserId) {
+    return
   }
-  return false
+  if (recipientUserId === currentUser.value) {
+    return
+  }
+  const receiptKey = `${selectedChannelId.value}:${messageId}:${recipientUserId}`
+  if (sentReadReceipts.has(receiptKey)) {
+    return
+  }
+  try {
+    const res = await fetch(
+      `${gatewayUrl.value}/channels/${selectedChannelId.value}/messages/${messageId}/read`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ recipient_user_id: recipientUserId }),
+      }
+    )
+    if (!res.ok) {
+      await handleApiError(res)
+      return
+    }
+    sentReadReceipts.add(receiptKey)
+  } catch (err) {
+    console.error("Failed to send read receipt", err)
+  }
+}
+
+const updateProfile = async () => {
+  profileStatus.value = "saving..."
+  globalError.value = ""
+  const payload = {}
+  const nextDisplayName = profileDisplayName.value.trim()
+  const nextPassword = profilePassword.value.trim()
+
+  if (nextDisplayName && nextDisplayName !== currentDisplayName.value) {
+    payload.display_name = nextDisplayName
+  }
+  if (nextPassword) {
+    payload.password = nextPassword
+  }
+  if (Object.keys(payload).length === 0) {
+    profileStatus.value = "nothing to update"
+    return
+  }
+
+  try {
+    const previousUserId = currentUser.value
+    const res = await fetch(`${gatewayUrl.value}/auth/me`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      await handleApiError(res)
+      throw new Error("Profile update failed")
+    }
+    const user = await res.json()
+    currentUser.value = user.id
+    currentDisplayName.value = user.display_name || user.id
+    profileDisplayName.value = user.display_name || user.id
+    const nextUsersById = { ...usersById.value }
+    if (previousUserId && previousUserId !== user.id) {
+      delete nextUsersById[previousUserId]
+    }
+    nextUsersById[user.id] = user.display_name || user.id
+    usersById.value = nextUsersById
+    profilePassword.value = ""
+    profileStatus.value = "profile updated"
+    await loadHistory()
+  } catch (err) {
+    console.error("Profile update failed", err)
+    profileStatus.value = "update failed"
+  } finally {
+    setTimeout(() => {
+      profileStatus.value = ""
+    }, 2500)
+  }
+}
+
+const deleteAccount = async () => {
+  const confirmed = globalThis.confirm("Delete your account permanently?")
+  if (!confirmed) return
+
+  profileStatus.value = "deleting..."
+  globalError.value = ""
+  try {
+    const res = await fetch(`${gatewayUrl.value}/auth/me`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+    if (!res.ok) {
+      await handleApiError(res)
+      throw new Error("Delete account failed")
+    }
+    await logout()
+    authStatus.value = "account deleted"
+  } catch (err) {
+    console.error("Delete account failed", err)
+    profileStatus.value = "delete failed"
+  }
+}
+
+const refreshSession = async () => {
+  try {
+    const res = await fetch(`${gatewayUrl.value}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    })
+    return res.ok
+  } catch (err) {
+    console.error("Refresh failed", err)
+    return false
+  }
 }
 
 const scheduleRefresh = () => {
   if (refreshTimer) {
-    clearInterval(refreshTimer)
+    clearTimeout(refreshTimer)
   }
-  refreshTimer = setInterval(async () => {
+  // Refresh every 12 minutes (Access Token persists 15 min)
+  refreshTimer = setTimeout(async () => {
+    if (!authenticated.value) return
     const ok = await refreshSession()
-    if (!ok) {
+    if (ok) {
+      scheduleRefresh()
+    } else {
       await logout()
+      authStatus.value = "Session expired, please login again"
     }
-  }, 10 * 60 * 1000)
+  }, 12 * 60 * 1000)
 }
 
 const checkSession = async () => {
@@ -519,6 +807,10 @@ const checkSession = async () => {
     const user = await res.json()
     authenticated.value = true
     currentUser.value = user.id
+    currentDisplayName.value = user.display_name || user.id
+    profileDisplayName.value = user.display_name || user.id
+    profilePassword.value = ""
+    await loadUsers()
     await loadChannels()
     await loadHistory()
     connectStream()
@@ -526,19 +818,84 @@ const checkSession = async () => {
   }
 }
 
-const parseMessage = (raw, fallbackAuthor = "") => {
+const handleReadReceipt = (receipt) => {
+  if (!receipt.recipientUserId || receipt.recipientUserId !== currentUser.value) {
+    return
+  }
+  if (receipt.readerId && receipt.readerId === currentUser.value) {
+    return
+  }
+  const readerName = receipt.readerName || resolveDisplayName(receipt.readerId, "")
+  const messagePreview = buildReadMessagePreview(receipt.messageId)
+  addReceiptToast(`${readerName || "Someone"} read your message${messagePreview}`)
+}
+
+const buildReadMessagePreview = (messageId) => {
+  if (!messageId) {
+    return ""
+  }
+  const message = messages.value.find((item) => item.messageId === messageId)
+  const preview = (message?.messageBody || "").trim().slice(0, 15)
+  if (!preview) {
+    return ""
+  }
+  return `: "${preview}${message.messageBody.trim().length > 15 ? "..." : ""}"`
+}
+
+const parseIncomingEvent = (raw, fallbackAuthor = "", fallbackMessageId = null) => {
   try {
     const parsed = JSON.parse(raw)
-    if (parsed && parsed.user && parsed.message) {
+    if (parsed?.type === "read_receipt") {
       return {
-        text: `${parsed.user} : ${parsed.message}`,
-        author: parsed.user,
+        type: "read_receipt",
+        messageId: parsed.message_id || null,
+        recipientUserId: parsed.recipient_user_id || "",
+        readerId: parsed.reader_id || "",
+        readerName: parsed.reader || "",
+      }
+    }
+    if (parsed?.type === "chat_message" && parsed.message) {
+      return {
+        type: "chat_message",
+        messageId: parsed.message_id || fallbackMessageId,
+        authorId: parsed.user_id || fallbackAuthor || "",
+        fallbackAuthor: parsed.user || fallbackAuthor || "",
+        message: parsed.message,
+      }
+    }
+    if (parsed && parsed.message) {
+      return {
+        type: "chat_message",
+        messageId: fallbackMessageId,
+        authorId: parsed.user_id || fallbackAuthor || "",
+        fallbackAuthor: parsed.user || fallbackAuthor || "",
+        message: parsed.message,
       }
     }
   } catch {
     // ignore
   }
-  return { text: raw, author: fallbackAuthor }
+  return {
+    type: "chat_message",
+    messageId: fallbackMessageId,
+    authorId: fallbackAuthor || "",
+    fallbackAuthor: fallbackAuthor || "",
+    message: raw,
+  }
+}
+
+const resolveDisplayName = (userId, fallbackAuthor = "") => {
+  if (userId && usersById.value[userId]) {
+    return usersById.value[userId]
+  }
+  if (userId === currentUser.value) {
+    return currentDisplayName.value || currentUser.value
+  }
+  return fallbackAuthor || userId || "unknown"
+}
+
+const formatMessageText = (userId, message, fallbackAuthor = "") => {
+  return `${resolveDisplayName(userId, fallbackAuthor)} : ${message}`
 }
 
 const scrollToBottom = () => {

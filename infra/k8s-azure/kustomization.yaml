@@ -1,0 +1,51 @@
+# Kustomize overlay for Azure AKS deployment.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: storm
+
+# Resources are listed individually because of path restrictions
+resources:
+  - k8s/namespace.yaml
+  - k8s/rbac.yaml
+  - k8s/networkpolicy.yaml
+  - k8s/nats.yaml
+  - k8s/gateway.yaml
+  - k8s/messages.yaml
+  - k8s/prometheus.yaml
+  - k8s/grafana.yaml
+  # Azure-specific
+  - gateway-hpa.yaml
+  - ingress-azure.yaml
+  - secret-azure.yaml
+  - configmap-azure.yaml
+
+# Re-specify images to ensure they point to ACR
+images:
+  - name: storm-gateway
+    newName: stormacrawgffq.azurecr.io/storm-gateway
+    newTag: latest
+  - name: storm-messages
+    newName: stormacrawgffq.azurecr.io/storm-messages
+    newTag: latest
+
+patches:
+  - target:
+      kind: Deployment
+      name: gateway
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "512Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "2"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "2Gi"

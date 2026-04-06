@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -66,10 +67,10 @@ func TestPostgresStoreUserFlow(t *testing.T) {
 		t.Fatalf("list users: %v", err)
 	}
 
-	mock.ExpectExec("UPDATE users SET display_name").WithArgs("Bob2", "bob").WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-	mock.ExpectExec("UPDATE users SET password_hash").WithArgs(pgxmock.AnyArg(), "bob").WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-	mock.ExpectQuery("SELECT id, display_name").WithArgs("bob").WillReturnRows(
-		pgxmock.NewRows([]string{"id", "display_name", "created_at"}).AddRow("bob", "Bob2", time.Now()),
+	mock.ExpectExec("UPDATE users SET id =").WithArgs("Bob2", "Bob2", "bob").WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+	mock.ExpectExec("UPDATE users SET password_hash").WithArgs(pgxmock.AnyArg(), "Bob2").WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+	mock.ExpectQuery("SELECT id, display_name").WithArgs("Bob2").WillReturnRows(
+		pgxmock.NewRows([]string{"id", "display_name", "created_at"}).AddRow("Bob2", "Bob2", time.Now()),
 	)
 	if _, err := s.UpdateUser(context.Background(), "bob", "Bob2", "newpass"); err != nil {
 		t.Fatalf("update user: %v", err)
@@ -86,6 +87,13 @@ func TestPostgresStoreUserFlow(t *testing.T) {
 	)
 	if _, err := s.VerifyUserPassword(context.Background(), "eve", "pass"); err != nil {
 		t.Fatalf("verify user: %v", err)
+	}
+
+	mock.ExpectQuery("SELECT id, password_hash").WithArgs("Eve").WillReturnRows(
+		pgxmock.NewRows([]string{"id", "password_hash", "display_name", "created_at"}).AddRow("eve", string(hash), "Eve", time.Now()),
+	)
+	if _, err := s.VerifyUserPassword(context.Background(), "Eve", "pass"); err != nil {
+		t.Fatalf("verify user by display_name: %v", err)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -225,8 +233,8 @@ func TestPostgresStoreUpdateUserNotFound(t *testing.T) {
 	defer mock.Close()
 
 	s := newPostgresStoreWithPool(mock)
-	mock.ExpectExec("UPDATE users SET display_name").WithArgs("Bob2", "bob").WillReturnResult(pgxmock.NewResult("UPDATE", 0))
-	mock.ExpectQuery("SELECT id, display_name").WithArgs("bob").WillReturnError(pgx.ErrNoRows)
+	mock.ExpectExec("UPDATE users SET id =").WithArgs("Bob2", "Bob2", "bob").WillReturnResult(pgxmock.NewResult("UPDATE", 0))
+	mock.ExpectQuery("SELECT id, display_name").WithArgs("Bob2").WillReturnError(pgx.ErrNoRows)
 	if _, err := s.UpdateUser(context.Background(), "bob", "Bob2", ""); err == nil {
 		t.Fatalf("expected error")
 	}
@@ -585,4 +593,38 @@ func TestRedisPresenceIncrDecrClose(t *testing.T) {
 
 func TestPgconnCommandTag(t *testing.T) {
 	var _ pgconn.CommandTag
+}
+
+func TestGetBcryptCost(t *testing.T) {
+	os.Setenv("BCRYPT_COST", "")
+	if cost := getBcryptCost(); cost != bcrypt.DefaultCost {
+		t.Fatalf("expected DefaultCost, got %d", cost)
+	}
+
+	os.Setenv("BCRYPT_COST", "invalid")
+	if cost := getBcryptCost(); cost != bcrypt.DefaultCost {
+		t.Fatalf("expected DefaultCost for invalid, got %d", cost)
+	}
+
+	os.Setenv("BCRYPT_COST", "4")
+	if cost := getBcryptCost(); cost != 4 {
+		t.Fatalf("expected 4, got %d", cost)
+	}
+	os.Setenv("BCRYPT_COST", "")
+}
+
+func TestMaybeSimulateDelay(t *testing.T) {
+	os.Setenv("SIMULATE_DB_DELAY", "")
+	maybeSimulateDelay() // Should return immediately
+
+	os.Setenv("SIMULATE_DB_DELAY", "invalid")
+	maybeSimulateDelay() // Should return immediately
+
+	os.Setenv("SIMULATE_DB_DELAY", "1ms")
+	start := time.Now()
+	maybeSimulateDelay()
+	if time.Since(start) < 1*time.Millisecond {
+		t.Fatalf("expected delay to occur")
+	}
+	os.Setenv("SIMULATE_DB_DELAY", "")
 }

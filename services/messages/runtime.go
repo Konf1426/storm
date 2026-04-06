@@ -15,8 +15,12 @@ type NatsConn interface {
 	Close()
 }
 
+func noopNATSMessageHandler(_ *nats.Msg) {
+	// This subscription is only used to validate that the subject can be subscribed successfully.
+}
+
 func runMessages(ctx context.Context, nc NatsConn, subject, addr string) error {
-	_, err := nc.Subscribe(subject, func(m *nats.Msg) {})
+	_, err := nc.Subscribe(subject, noopNATSMessageHandler)
 	if err != nil {
 		return err
 	}

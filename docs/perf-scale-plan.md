@@ -43,3 +43,25 @@ Valider la tenue en charge proche des cibles consignes:
 - Logs k6
 - Screenshots dashboards
 - Rapport synthese (tableau des paliers)
+
+---
+
+## Azure AKS (ajouté Mars 2026)
+
+### Infrastructure
+- AKS: 3-10 nodes `Standard_D4s_v5` (autoscaling)
+- Azure Database for PostgreSQL Flexible Server
+- Azure Cache for Redis (Standard C1)
+- Application Gateway v2 (WebSocket natif)
+- HPA: gateway 3→20 replicas (CPU 70%, RAM 80%)
+
+### Stratégie de charge
+- 4 pods k6 distribués dans AKS (Job Kubernetes)
+- Chaque pod génère 25k VUs = **100k total**
+- Scripts: `scripts/k6/storm-azure.js`
+- Déploiement: `scripts/azure-deploy.ps1`
+- Tests: `scripts/azure-load-test.ps1`
+
+### Documentation
+- Guide complet: `docs/azure-deployment.md`
+- CI/CD: `.github/workflows/cd-azure.yml`
