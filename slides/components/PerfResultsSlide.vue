@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Vue component for Performance Results (Storm Day)
+// Vue component for Performance Results (Storm Day) - Unified Table Version
 </script>
 
 <template>
@@ -9,182 +9,209 @@
       <h2 class="section-title">Tenue sous charge : le système dégrade gracieusement</h2>
     </div>
 
-    <div class="results-grid">
-      <!-- Latency p95 -->
-      <article class="clean-card shadow-sm">
+    <div class="results-container">
+      <!-- Unified Results Table -->
+      <article class="clean-card shadow-sm table-card">
         <header class="card-head">
-          <div class="icon-box orange-bg"><img src="https://api.iconify.design/carbon/timer.svg" class="icon-sm"/></div>
-          <h3 class="card-title">Latence p95 (Round-trip)</h3>
+          <div class="icon-box blue-bg"><img src="https://api.iconify.design/carbon/chart-cluster-bar.svg" class="icon-sm"/></div>
+          <h3 class="card-title">Métriques de performance par phase</h3>
         </header>
-        <div class="card-body">
-          <div class="metric-trend">
-            <div class="trend-item">
-              <span class="trend-bar" style="height: 10%"></span>
-              <span class="trend-val">6.3ms</span>
-              <span class="trend-label">Warmup</span>
-            </div>
-            <div class="trend-item">
-              <span class="trend-bar" style="height: 55%"></span>
-              <span class="trend-val">81.3ms</span>
-              <span class="trend-label">Spike 1</span>
-            </div>
-            <div class="trend-item">
-              <span class="trend-bar peak" style="height: 100%"></span>
-              <span class="trend-val text-orange">141.5ms</span>
-              <span class="trend-label">Chaos</span>
-            </div>
-          </div>
-          <p class="text-xs mt-auto">Latence maintenue sous le seuil critique (< 200ms) malgré l'injection de pannes.</p>
+        
+        <div class="table-wrapper">
+          <table class="perf-table">
+            <thead>
+              <tr>
+                <th>Métrique</th>
+                <th>Warmup <span class="th-sub">(Normal)</span></th>
+                <th>Spike 1 <span class="th-sub">(Charge)</span></th>
+                <th>Chaos <span class="th-sub">(Pannes)</span></th>
+                <th>Seuil / Cible</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="metric-name">
+                  <div class="metric-icon orange"><img src="https://api.iconify.design/carbon/timer.svg"/></div>
+                  Latence p95 <span class="unit">(ms)</span>
+                </td>
+                <td>6.3ms</td>
+                <td>81.3ms</td>
+                <td class="highlight-orange">141.5ms</td>
+                <td class="target">< 200ms</td>
+              </tr>
+              <tr>
+                <td class="metric-name">
+                  <div class="metric-icon cyan"><img src="https://api.iconify.design/carbon/cloud-service-management.svg"/></div>
+                  Débit HTTP <span class="unit">(req/s)</span>
+                </td>
+                <td>923</td>
+                <td class="highlight-cyan">2 502</td>
+                <td>2 008</td>
+                <td class="target">Scaling OK</td>
+              </tr>
+              <tr>
+                <td class="metric-name">
+                  <div class="metric-icon purple"><img src="https://api.iconify.design/carbon/connect.svg"/></div>
+                  Débit Message WS <span class="unit">(msg/s)</span>
+                </td>
+                <td>23.4K</td>
+                <td>145K</td>
+                <td class="highlight-purple">171.4K</td>
+                <td class="target">Linéaire</td>
+              </tr>
+              <tr>
+                <td class="metric-name">
+                  <div class="metric-icon green"><img src="https://api.iconify.design/carbon/checkmark-outline.svg"/></div>
+                  Taux d'erreur <span class="unit">(%)</span>
+                </td>
+                <td>0%</td>
+                <td>0%</td>
+                <td class="highlight-green">0%</td>
+                <td class="target">0 % Error</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="table-footer">
+          <p class="text-xs">Les métriques confirment que malgré l'injection de pannes (Chaos), le système maintient ses SLOs sans crash ni fuite.</p>
         </div>
       </article>
-
-      <!-- Debit HTTP -->
-      <article class="clean-card shadow-sm">
-        <header class="card-head">
-          <div class="icon-box cyan-bg"><img src="https://api.iconify.design/carbon/cloud-service-management.svg" class="icon-sm"/></div>
-          <h3 class="card-title">Débit Requêtes HTTP</h3>
-        </header>
-        <div class="card-body">
-          <div class="metric-trend">
-            <div class="trend-item">
-              <span class="trend-bar bar-cyan" style="height: 37%"></span>
-              <span class="trend-val">923</span>
-              <span class="trend-label">Warmup</span>
-            </div>
-            <div class="trend-item">
-              <span class="trend-bar bar-cyan peak" style="height: 100%"></span>
-              <span class="trend-val text-cyan">2 502</span>
-              <span class="trend-label">Spike 1</span>
-            </div>
-            <div class="trend-item">
-              <span class="trend-bar bar-cyan" style="height: 80%"></span>
-              <span class="trend-val">2 008</span>
-              <span class="trend-label">Chaos</span>
-            </div>
-          </div>
-          <p class="text-xs mt-auto">req/s · Error rate 0 % sur les 3 phases — stabilité Auth/Gateway confirmée.</p>
-        </div>
-      </article>
-
-      <!-- Debit WebSocket -->
-      <article class="clean-card shadow-sm">
-        <header class="card-head">
-          <div class="icon-box purple-bg"><img src="https://api.iconify.design/carbon/connect.svg" class="icon-sm"/></div>
-          <h3 class="card-title">Débit Messages WebSocket</h3>
-        </header>
-        <div class="card-body">
-          <div class="metric-trend">
-            <div class="trend-item">
-              <span class="trend-bar bar-purple" style="height: 14%"></span>
-              <span class="trend-val">23.4K</span>
-              <span class="trend-label">Warmup</span>
-            </div>
-            <div class="trend-item">
-              <span class="trend-bar bar-purple" style="height: 85%"></span>
-              <span class="trend-val">145K</span>
-              <span class="trend-label">Spike 1</span>
-            </div>
-            <div class="trend-item">
-              <span class="trend-bar bar-purple peak" style="height: 100%"></span>
-              <span class="trend-val text-purple">171.4K</span>
-              <span class="trend-label">Chaos</span>
-            </div>
-          </div>
-          <p class="text-xs mt-auto">msg/s · Le bus NATS scale linéairement avec la charge, même sous injection de pannes.</p>
-        </div>
-      </article>
-
-      <!-- Synthèse technique bottom bar -->
-      <div class="status-summary full-span shadow-sm">
-        <div class="summary-item">
-           <img src="https://api.iconify.design/carbon/checkmark-filled.svg?color=%2310b981" class="sum-icon"/>
-           <span><strong>Résilience</strong> : Aucun crash service constaté lors des arrêts de nœuds.</span>
-        </div>
-        <div class="summary-item">
-           <img src="https://api.iconify.design/carbon/checkmark-filled.svg?color=%2310b981" class="sum-icon"/>
-           <span><strong>Stabilité</strong> : Zero memory leak identifié lors des profils pprof post-charge.</span>
-        </div>
-        <div class="summary-item">
-           <img src="https://api.iconify.design/carbon/checkmark-filled.svg?color=%2310b981" class="sum-icon"/>
-           <span><strong>Scalabilité</strong> : Goulets identifiés (JSON/RSA) prêts pour optimisation.</span>
-        </div>
-      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .page-shell { display: flex; flex-direction: column; height: 100%; }
-.header-minimal { margin-bottom: 1rem; }
+.header-minimal { margin-bottom: 0.4rem; }
 
-.results-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: 1fr auto;
-  gap: 1.2rem;
+.results-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
   flex-grow: 1;
+  min-height: 0;
 }
 
-.full-span { grid-column: 1 / -1; }
-
 .clean-card {
-  background: white; border-radius: 12px; padding: 1.2rem;
-  display: flex; flex-direction: column; gap: 1rem;
+  background: white; border-radius: 12px; padding: 0.8rem 1.2rem;
+  display: flex; flex-direction: column; gap: 0.4rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03); border: 1px solid rgba(0,0,0,0.04);
 }
 
-.card-head { display: flex; align-items: center; gap: 0.6rem; }
+.table-card {
+  flex-grow: 1;
+  padding: 0.8rem 1.2rem;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.2rem; }
 .card-title { font-size: 0.9rem; font-weight: 700; color: var(--storm-ink); margin: 0; }
 
-.icon-box { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
-.icon-sm { width: 14px; filter: grayscale(1) brightness(0) invert(1); }
+.icon-box { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+.icon-sm { width: 16px; filter: grayscale(1) brightness(0) invert(1); }
+.blue-bg { background: var(--storm-ink); }
 
-.orange-bg { background: #f97316; }
-.cyan-bg { background: #06b6d4; }
-.purple-bg { background: #8b5cf6; }
-
-.card-body { display: flex; flex-direction: column; flex-grow: 1; gap: 1rem; justify-content: center; }
-
-/* Latency Trend */
-.metric-trend {
-  display: flex; align-items: flex-end; justify-content: space-around; height: 80px; padding-bottom: 0.5rem;
-  border-bottom: 1px solid #f1f5f9;
+.table-wrapper {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  min-height: 0;
 }
-.trend-item { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 30%; }
-.trend-bar { width: 100%; background: #e2e8f0; border-radius: 4px 4px 0 0; transition: height 0.3s ease; }
-.trend-bar.peak { background: #fdba74; }
-.bar-cyan { background: #a5f3fc; }
-.bar-cyan.peak { background: #06b6d4; }
-.bar-purple { background: #ddd6fe; }
-.bar-purple.peak { background: #8b5cf6; }
-.trend-val { font-family: monospace; font-size: 0.65rem; font-weight: 700; color: #475569; }
-.trend-label { font-size: 0.55rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; }
-.text-orange { color: #f97316; }
-.text-cyan { color: #06b6d4; }
 
-/* Huge Value Display */
-.metric-value-box { text-align: center; padding: 0.5rem 0; }
-.huge-val { font-size: 2.2rem; font-weight: 800; color: var(--storm-ink); letter-spacing: -0.04em; line-height: 1; }
-.unit-val { font-size: 0.8rem; font-weight: 600; color: #94a3b8; margin-left: 0.3rem; }
+.perf-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8rem;
+}
 
-.mini-stats { display: flex; flex-direction: column; gap: 0.3rem; }
-.ms-row { display: flex; justify-content: space-between; font-size: 0.65rem; color: #64748b; font-weight: 500; border-bottom: 1px dashed #f1f5f9; padding-bottom: 0.2rem; }
-.ms-row span:last-child { font-weight: 700; color: var(--storm-ink); }
-.text-green { color: #10b981 !important; }
-.text-purple { color: #8b5cf6 !important; }
+.perf-table th {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 2px solid #f1f5f9;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+}
 
-.text-xs { font-size: 0.65rem; color: #94a3b8; line-height: 1.3; text-align: center; }
-.mt-auto { margin-top: auto; }
+.th-sub {
+  display: block;
+  font-weight: 400;
+  text-transform: none;
+  font-size: 0.5rem;
+  color: #94a3b8;
+}
+
+.perf-table td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--storm-ink);
+  font-weight: 500;
+}
+
+.metric-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700 !important;
+}
+
+.metric-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.metric-icon img { width: 12px; filter: invert(1); }
+
+.orange { background: #f97316; }
+.cyan { background: #06b6d4; }
+.purple { background: #8b5cf6; }
+.green { background: #10b981; }
+
+.unit {
+  font-weight: 400;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  margin-left: 0.15rem;
+}
+
+.highlight-orange { color: #f97316 !important; font-weight: 800 !important; background: rgba(249, 115, 22, 0.04); }
+.highlight-cyan { color: #06b6d4 !important; font-weight: 800 !important; background: rgba(6, 182, 212, 0.04); }
+.highlight-purple { color: #8b5cf6 !important; font-weight: 800 !important; background: rgba(139, 92, 246, 0.04); }
+.highlight-green { color: #10b981 !important; font-weight: 800 !important; background: rgba(16, 185, 129, 0.04); }
+
+.target {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.65rem;
+  color: #64748b !important;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.table-footer {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.text-xs { font-size: 0.7rem; color: #64748b; line-height: 1.2; }
 
 /* Status Summary Bottom Bar */
 .status-summary {
   background: white; border: 1px solid #e2e8f0; border-radius: 12px;
-  display: flex; align-items: center; justify-content: space-around; padding: 0.8rem 1.2rem;
-  margin-top: 0.5rem;
+  display: flex; align-items: center; justify-content: space-around; padding: 0.5rem 1rem;
 }
-.summary-item { display: flex; align-items: center; gap: 0.6rem; }
+.summary-item { display: flex; align-items: center; gap: 0.4rem; }
 .sum-icon { width: 14px; }
-.summary-item span { font-size: 0.72rem; color: #475569; line-height: 1.3; }
+.summary-item span { font-size: 0.7rem; color: #475569; }
 .summary-item strong { color: var(--storm-ink); }
 </style>
-

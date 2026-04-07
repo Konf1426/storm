@@ -76,6 +76,7 @@
                  <th>Configuration Principale</th>
                  <th class="text-right">Coût / H</th>
                  <th class="text-right">Perf. Login</th>
+                 <th class="text-right">Perf. Msg</th>
                </tr>
              </thead>
              <tbody>
@@ -84,27 +85,31 @@
                  <td><span class="bento-badge bg-dark">Initial</span></td>
                  <td class="font-medium text-muted">B2s (2 vCPU) + DB 4 Cores</td>
                  <td class="text-right font-mono">0,15 $</td>
-                 <td class="text-right font-black c-orange">> 5 000 ms</td>
+                 <td class="text-right font-black c-orange">> 4 000 ms</td>
+                 <td class="text-right font-black c-orange">~2 500 ms</td>
                </tr>
                <!-- Mid -->
                <tr>
                  <td><span class="bento-badge border-cyan c-cyan">Mid</span></td>
                  <td class="font-medium text-muted">5x B2s (10 vCPU) + DB 4 Cores</td>
                  <td class="text-right font-mono">~0,60 $</td>
-                 <td class="text-right font-black text-ink">1 800 ms</td>
+                 <td class="text-right font-black text-ink">~1 100 ms</td>
+                 <td class="text-right font-black text-ink">< 100 ms</td>
                </tr>
                <!-- Ultra -->
                <tr class="ultra-row">
                  <td><span class="bento-badge border-green c-green bg-green-subtle">Ultra</span></td>
                  <td class="font-bold text-ink">26 vCPUs (D-Series) + DB 16 Cores</td>
                  <td class="text-right font-mono font-black c-green">3,33 $</td>
-                 <td class="text-right font-black c-green">221 ms</td>
+                 <td class="text-right font-black c-green">144 ms</td>
+                 <td class="text-right font-black c-green">85 ms</td>
                </tr>
                <!-- Veille -->
                <tr class="veille-row">
                  <td><span class="bento-badge box-bg text-muted">Veille</span></td>
                  <td class="font-medium text-muted italic">1x B2s + DB 2 Cores (Actuel)</td>
                  <td class="text-right font-mono text-muted">0,15 $</td>
+                 <td class="text-right font-bold text-muted uppercase text-xxs">— (Éco)</td>
                  <td class="text-right font-bold text-muted uppercase text-xxs">— (Éco)</td>
                </tr>
              </tbody>
